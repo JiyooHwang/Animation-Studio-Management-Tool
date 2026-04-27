@@ -1,48 +1,39 @@
 /* eslint-disable no-unused-vars */
 // 프로젝트 상세 페이지
-// - 프로젝트 선택
-// - 제목 편집 (Projects.setName 으로 동기화)
-// - 주당단가 (premium / standard) 편집 → Projects.setRates
-// - 투입 인력 행 추가/삭제, 행마다 역할/내부외주/주별 리소스 수
-// - 자동 계산: 리소스합 × 단가 = 비용 (내부 또는 외주에 들어감)
+// - 프로젝트 선택 / 제목 편집
+// - 주당단가 (exec / premium / standard) 편집
+// - TEAMS 21개 모두 고정 행으로 표시 (행 추가/삭제 없음)
+// - 분류(내부/외주), 주별 리소스, 단가 override, 외주비용 직접 입력
 const ProjectPage = (function () {
   const STORE_FILTER = 'project.filter.v1'; // { projectId, period }
   const WEEKS_PER_MONTH = 4;
   const DEFAULT_PERIOD = { startYear: 2026, startMonth: 4, monthCount: 9 };
 
   let mountEl = null;
-  let allRows = {};
   let state = {
-    projectId: 'toema2',
+    projectId: null,
     period: Object.assign({}, DEFAULT_PERIOD),
   };
 
   function init(rootEl) {
     mountEl = rootEl;
-    allRows = ProjectData.allRows();
     const sf = Store.read(STORE_FILTER, null);
     if (sf) {
       if (sf.projectId) state.projectId = sf.projectId;
       if (sf.period) state.period = Object.assign(state.period, sf.period);
+    }
+    // state.projectId 유효성 검증 (없거나 삭제된 프로젝트면 첫 번째로 fallback)
+    const projects = Projects.list();
+    const exists = projects.find((p) => p.id === state.projectId);
+    if (!exists) {
+      state.projectId = projects.length ? projects[0].id : null;
+      persistFilter();
     }
     render();
   }
 
   function persistFilter() {
     Store.write(STORE_FILTER, state);
-  }
-
-  function persistRows() {
-    Store.write(ProjectData.STORE_ROWS, allRows);
-  }
-
-  function rowsForCurrent() {
-    return allRows[state.projectId] || [];
-  }
-
-  function setRowsForCurrent(rows) {
-    allRows[state.projectId] = rows;
-    persistRows();
   }
 
   function periodMonths() {
@@ -57,55 +48,28 @@ const ProjectPage = (function () {
     return out;
   }
 
-  function weekKey(year, month, week) {
-    return `${year}-${month}-${week}`;
+  function weekKey(year, month, week) { return `${year}-${month}-${week}`; }
+
+  function setRowField(teamId, patch) {
+    if (!state.projectId) return;
+    ProjectData.setRow(state.projectId, teamId, patch);
   }
 
-  // ProjectData 헬퍼로 위임 (cost/personnel 페이지와 동일 로직)
-  const rowResources = (r) => ProjectData.rowResources(r);
-  const rowRate      = (r) => ProjectData.rowRate(r);
-  const rowCost      = (r) => ProjectData.rowCost(r);
-
-  function addRow() {
-    const rows = rowsForCurrent().slice();
-    rows.push({
-      id: 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-      teamId: 'producer',
-      kind: '내부',
-      weeks: {},
-    });
-    setRowsForCurrent(rows);
-    render();
-  }
-
-  function deleteRow(rowId) {
-    const rows = rowsForCurrent().filter((r) => r.id !== rowId);
-    setRowsForCurrent(rows);
-    render();
-  }
-
-  function updateRow(rowId, patch) {
-    const rows = rowsForCurrent().map((r) => (r.id === rowId ? Object.assign({}, r, patch) : r));
-    setRowsForCurrent(rows);
-  }
-
-  function setWeek(rowId, year, month, week, value) {
-    const rows = rowsForCurrent().map((r) => {
-      if (r.id !== rowId) return r;
-      const weeks = Object.assign({}, r.weeks || {});
-      const k = weekKey(year, month, week);
-      if (value === '' || value === 0 || value === null) delete weeks[k];
-      else weeks[k] = Number(value);
-      return Object.assign({}, r, { weeks });
-    });
-    setRowsForCurrent(rows);
+  function setWeek(teamId, year, month, week, value) {
+    if (!state.projectId) return;
+    const r = ProjectData.rowFor(state.projectId, teamId);
+    const weeks = Object.assign({}, r.weeks || {});
+    const k = weekKey(year, month, week);
+    if (!value) delete weeks[k];
+    else weeks[k] = Number(value);
+    ProjectData.setRow(state.projectId, teamId, { weeks });
   }
 
   function render() {
     if (!mountEl) return;
     const months = periodMonths();
     const last = months[months.length - 1];
-    const projectName = Projects.getName(state.projectId);
+    const projectName = state.projectId ? Projects.getName(state.projectId) : '';
 
     mountEl.innerHTML = `
       <div class="topbar">
@@ -163,7 +127,6 @@ const ProjectPage = (function () {
 
     return `
       <div class="project-toolbar">
-        <button class="btn primary" id="proj-add-row" type="button">+ 행 추가</button>
         <span class="spacer" style="flex:1;"></span>
         <label style="font-size:11px; color:var(--text-dim);">시작</label>
         <select id="proj-start-year">${yearOpts}</select>
@@ -175,10 +138,17 @@ const ProjectPage = (function () {
   }
 
   function renderTable(months) {
-    const rows = rowsForCurrent();
-    const totalCost = rows.reduce((s, r) => s + rowCost(r), 0);
-    const totalInternal = rows.filter((r) => r.kind === '내부').reduce((s, r) => s + rowCost(r), 0);
-    const totalExternal = rows.filter((r) => r.kind === '외주').reduce((s, r) => s + rowCost(r), 0);
+    if (!state.projectId) {
+      return `<div class="empty-rows-note" style="padding:40px; text-align:center;">먼저 비용 탭에서 프로젝트를 추가하거나 선택하세요.</div>`;
+    }
+
+    // 합계
+    let totalInternal = 0, totalExternal = 0;
+    TEAMS.forEach((t) => {
+      totalInternal += ProjectData.rowInternalCost(state.projectId, t.id);
+      totalExternal += ProjectData.rowExternalCost(state.projectId, t.id);
+    });
+    const totalCost = totalInternal + totalExternal;
 
     // 주별 헤더
     const yearGroups = [];
@@ -215,32 +185,32 @@ const ProjectPage = (function () {
       <th class="col-cost" rowspan="3">내부비용</th>
       <th class="col-cost" rowspan="3">외주비용</th>
     `;
-    const headerRight = `<th class="col-actions" rowspan="3"></th>`;
 
-    let bodyRows;
-    if (rows.length === 0) {
-      const totalCols = 7 + months.length * WEEKS_PER_MONTH + 1;
-      bodyRows = `<tr><td colspan="${totalCols}" class="empty-rows-note">+ 행 추가 버튼으로 투입 인력을 입력하세요.</td></tr>`;
-    } else {
-      bodyRows = rows.map((row) => renderRow(row, months, totalCost)).join('');
-    }
+    const bodyRows = TEAMS.map((team) => renderRow(team, months, totalCost)).join('');
 
-    // 합계 row
     const totalsWeek = months.map((m, mi) => {
       const nextSameYear = months[mi + 1] && months[mi + 1].year === m.year;
       const groupEnd = nextSameYear ? 'month-end' : 'year-end';
       return [1, 2, 3, 4].map((w, wi) => {
         let s = 0;
-        rows.forEach((r) => { s += Number((r.weeks || {})[weekKey(m.year, m.month, w)]) || 0; });
+        TEAMS.forEach((t) => {
+          const r = ProjectData.rowFor(state.projectId, t.id);
+          s += Number((r.weeks || {})[weekKey(m.year, m.month, w)]) || 0;
+        });
         const cls = wi === 3 ? `col-week ${groupEnd}` : 'col-week';
         return `<td class="${cls}">${s ? s : ''}</td>`;
       }).join('');
     }).join('');
 
+    const totalResources = TEAMS.reduce(
+      (s, t) => s + ProjectData.rowResources(ProjectData.rowFor(state.projectId, t.id)),
+      0
+    );
+
     return `
       <table class="project-table">
         <thead>
-          <tr>${headerLeft}${yearHeaderCells}${headerRight}</tr>
+          <tr>${headerLeft}${yearHeaderCells}</tr>
           <tr>${monthHeaderCells}</tr>
           <tr>${weekHeaderCells}</tr>
         </thead>
@@ -248,38 +218,33 @@ const ProjectPage = (function () {
         <tfoot>
           <tr>
             <td colspan="3" style="text-align:center;">합계</td>
-            <td class="col-resource">${rows.reduce((s, r) => s + rowResources(r), 0) || ''}</td>
+            <td class="col-resource">${totalResources || ''}</td>
             <td class="col-rate"></td>
             <td class="col-cost">${formatNumber(totalInternal, { zeroAsBlank: true })}</td>
             <td class="col-cost">${formatNumber(totalExternal, { zeroAsBlank: true })}</td>
             ${totalsWeek}
-            <td></td>
           </tr>
           <tr>
             <td colspan="3" style="text-align:center;">총비용</td>
-            <td colspan="${4 + months.length * WEEKS_PER_MONTH + 1}" style="text-align:right; padding-right:14px; background:#fff7a8;">${formatNumber(totalCost)}</td>
+            <td colspan="${4 + months.length * WEEKS_PER_MONTH}" style="text-align:right; padding-right:14px; background:#fff7a8;">${formatNumber(totalCost)}</td>
           </tr>
         </tfoot>
       </table>
     `;
   }
 
-  function renderRow(row, months, totalCost) {
-    const team = getTeam(row.teamId);
-    const color = team ? team.color : '#fff';
-    const textColor = team ? (team.textColor || pickTextColor(team.color)) : '#1f1f1f';
+  function renderRow(team, months, totalCost) {
+    const row = ProjectData.withTeamId(state.projectId, team.id);
+    const color = team.color;
+    const textColor = team.textColor || pickTextColor(team.color);
 
-    const teamOpts = TEAMS.map(
-      (t) => `<option value="${t.id}" ${t.id === row.teamId ? 'selected' : ''}>${escapeHtml(t.role)}</option>`
-    ).join('');
-
-    const resources = rowResources(row);
-    const rate = rowRate(row);
-    const cost = rowCost(row);
-    const pct = totalCost > 0 ? (cost / totalCost * 100) : 0;
+    const resources = ProjectData.rowResources(row);
+    const rate = ProjectData.rowRate(row);
+    const internalCost = row.kind === '내부' ? resources * rate : 0;
+    const externalCost = Number(row.externalCost) || 0;
+    const rowTotal = internalCost + externalCost;
+    const pct = totalCost > 0 ? (rowTotal / totalCost * 100) : 0;
     const isInternal = row.kind === '내부';
-    const hasManual = row.manualCost !== undefined && row.manualCost !== null && row.manualCost !== '';
-    const manualVal = hasManual ? formatNumber(row.manualCost) : '';
 
     const weekCells = months.map((m, mi) => {
       const nextSameYear = months[mi + 1] && months[mi + 1].year === m.year;
@@ -287,29 +252,29 @@ const ProjectPage = (function () {
       return [1, 2, 3, 4].map((w, wi) => {
         const v = (row.weeks || {})[weekKey(m.year, m.month, w)] || '';
         const cls = wi === 3 ? `col-week ${groupEnd}` : 'col-week';
-        const styleBg = v && team ? `style="background:${color}; color:${textColor};"` : '';
-        return `<td class="${cls}" ${styleBg} data-week-cell="1" data-row="${row.id}" data-year="${m.year}" data-month="${m.month}" data-week="${w}"><input class="proj-row-input" type="text" data-action="week" data-row="${row.id}" data-year="${m.year}" data-month="${m.month}" data-week="${w}" value="${v || ''}" placeholder=""/><span class="fill-handle" data-fill-handle="1" title="드래그하여 같은 값 채우기"></span></td>`;
+        const styleBg = v ? `style="background:${color}; color:${textColor};"` : '';
+        return `<td class="${cls}" ${styleBg} data-week-cell="1" data-team="${team.id}" data-year="${m.year}" data-month="${m.month}" data-week="${w}"><input class="proj-row-input" type="text" data-action="week" data-team="${team.id}" data-year="${m.year}" data-month="${m.month}" data-week="${w}" value="${v || ''}" placeholder=""/><span class="fill-handle" data-fill-handle="1" title="드래그하여 같은 값 채우기"></span></td>`;
       }).join('');
     }).join('');
 
+    const rateDisplay = (row.rateOverride !== undefined && row.rateOverride !== '' && row.rateOverride !== null)
+      ? formatNumber(row.rateOverride) : formatNumber(rate);
+
     return `
-      <tr class="has-color" data-row="${row.id}">
+      <tr class="has-color" data-team="${team.id}">
         <td class="col-pct">${pct ? pct.toFixed(1) + '%' : ''}</td>
-        <td class="col-role" style="background:${color}; color:${textColor};">
-          <select class="proj-select-row" data-action="team" data-row="${row.id}">${teamOpts}</select>
-        </td>
+        <td class="col-role" style="background:${color}; color:${textColor};">${escapeHtml(team.role)}</td>
         <td class="col-kind">
-          <select class="proj-kind-select" data-action="kind" data-row="${row.id}">
+          <select class="proj-kind-select" data-action="kind" data-team="${team.id}">
             <option value="내부" ${isInternal ? 'selected' : ''}>내부</option>
             <option value="외주" ${!isInternal ? 'selected' : ''}>외주</option>
           </select>
         </td>
         <td class="col-resource">${resources || ''}</td>
-        <td class="col-rate"><input class="proj-rate-input" type="text" data-action="rate" data-row="${row.id}" value="${row.rateOverride !== undefined && row.rateOverride !== '' && row.rateOverride !== null ? formatNumber(row.rateOverride) : formatNumber(rate)}" /></td>
-        <td class="col-cost">${isInternal ? `<input class="proj-cost-input" type="text" data-action="manualCost" data-row="${row.id}" value="${hasManual ? manualVal : (cost ? formatNumber(cost) : '')}" placeholder="자동" title="직접 입력 시 자동 계산값을 덮어씁니다"/>` : ''}</td>
-        <td class="col-cost">${!isInternal ? `<input class="proj-cost-input" type="text" data-action="manualCost" data-row="${row.id}" value="${hasManual ? manualVal : (cost ? formatNumber(cost) : '')}" placeholder="자동" title="직접 입력 시 자동 계산값을 덮어씁니다"/>` : ''}</td>
+        <td class="col-rate"><input class="proj-rate-input" type="text" data-action="rate" data-team="${team.id}" value="${rateDisplay}" /></td>
+        <td class="col-cost" title="자동 계산: 리소스합 × 단가 (내부일 때)">${formatNumber(internalCost, { zeroAsBlank: true })}</td>
+        <td class="col-cost"><input class="proj-cost-input" type="text" data-action="external" data-team="${team.id}" value="${externalCost ? formatNumber(externalCost) : ''}" placeholder="0" /></td>
         ${weekCells}
-        <td class="col-actions"><button class="btn-row-del" data-action="del" data-row="${row.id}" type="button" title="행 삭제">×</button></td>
       </tr>
     `;
   }
@@ -377,18 +342,9 @@ const ProjectPage = (function () {
       render();
     });
 
-    const addR = mountEl.querySelector('#proj-add-row');
-    if (addR) addR.addEventListener('click', addRow);
-
-    mountEl.querySelectorAll('[data-action="team"]').forEach((sel) => {
-      sel.addEventListener('change', () => {
-        updateRow(sel.dataset.row, { teamId: sel.value });
-        render();
-      });
-    });
     mountEl.querySelectorAll('[data-action="kind"]').forEach((sel) => {
       sel.addEventListener('change', () => {
-        updateRow(sel.dataset.row, { kind: sel.value });
+        setRowField(sel.dataset.team, { kind: sel.value });
         render();
       });
     });
@@ -396,30 +352,14 @@ const ProjectPage = (function () {
       input.addEventListener('change', () => {
         const v = input.value.trim();
         const num = v === '' ? null : parseNumber(v);
-        updateRow(input.dataset.row, { rateOverride: num });
+        setRowField(input.dataset.team, { rateOverride: num });
         render();
       });
     });
-    // 외주비/내부비용 직접 입력 (manualCost) — 비우면 자동 계산값으로 복귀
-    mountEl.querySelectorAll('[data-action="manualCost"]').forEach((input) => {
+    mountEl.querySelectorAll('[data-action="external"]').forEach((input) => {
       input.addEventListener('change', () => {
-        const rowId = input.dataset.row;
-        const rows = rowsForCurrent();
-        const cur = rows.find((r) => r.id === rowId);
-        if (!cur) return;
-        const auto = ProjectData.rowResources(cur) * ProjectData.rowRate(cur);
-        const v = input.value.trim();
-        if (v === '') {
-          updateRow(rowId, { manualCost: null });
-        } else {
-          const num = parseNumber(v);
-          // 자동 계산값과 동일하면 override 해제
-          if (num === auto) {
-            updateRow(rowId, { manualCost: null });
-          } else {
-            updateRow(rowId, { manualCost: num });
-          }
-        }
+        const num = parseNumber(input.value);
+        setRowField(input.dataset.team, { externalCost: num });
         render();
       });
     });
@@ -427,7 +367,7 @@ const ProjectPage = (function () {
       input.addEventListener('change', () => {
         const num = parseNumber(input.value);
         setWeek(
-          input.dataset.row,
+          input.dataset.team,
           Number(input.dataset.year),
           Number(input.dataset.month),
           Number(input.dataset.week),
@@ -436,14 +376,11 @@ const ProjectPage = (function () {
         render();
       });
     });
-    mountEl.querySelectorAll('[data-action="del"]').forEach((btn) => {
-      btn.addEventListener('click', () => deleteRow(btn.dataset.row));
-    });
 
     bindDragFill();
   }
 
-  // 구글 스프레드시트 스타일 드래그 채우기 (week 셀의 fill-handle을 잡고 드래그)
+  // 구글 스프레드시트 스타일 드래그 채우기
   let drag = null;
 
   function bindDragFill() {
@@ -463,7 +400,7 @@ const ProjectPage = (function () {
 
     drag = {
       sourceValue: startInput.value,
-      targets: new Map(), // key = `${row}|${year}|${month}|${week}` → td
+      targets: new Map(),
     };
     addDragTarget(startTd);
 
@@ -473,7 +410,7 @@ const ProjectPage = (function () {
 
   function addDragTarget(td) {
     if (!drag) return;
-    const key = `${td.dataset.row}|${td.dataset.year}|${td.dataset.month}|${td.dataset.week}`;
+    const key = `${td.dataset.team}|${td.dataset.year}|${td.dataset.month}|${td.dataset.week}`;
     if (drag.targets.has(key)) return;
     drag.targets.set(key, td);
     td.classList.add('fill-target');
@@ -491,30 +428,28 @@ const ProjectPage = (function () {
   function onFillEnd() {
     if (!drag) return;
     const num = parseNumber(drag.sourceValue);
-    // 행 단위로 그룹핑하여 한 번에 setRowsForCurrent 호출 (현재 프로젝트 한정)
-    const allRowsState = ProjectData.allRows();
+
+    // 한 번에 batch 적용
+    const all = ProjectData.allRows();
+    if (!all[state.projectId]) all[state.projectId] = {};
+    const projRows = all[state.projectId];
     let touched = false;
     drag.targets.forEach((td) => {
-      const rowId = td.dataset.row;
+      const teamId = td.dataset.team;
       const y = Number(td.dataset.year);
       const m = Number(td.dataset.month);
       const w = Number(td.dataset.week);
-      // 현재 프로젝트의 행에서만 수정
-      const rows = allRowsState[state.projectId] || [];
-      const row = rows.find((r) => r.id === rowId);
-      if (!row) return;
-      const weeks = Object.assign({}, row.weeks || {});
+      const cur = projRows[teamId] || { kind: '내부', weeks: {}, externalCost: 0 };
+      const weeks = Object.assign({}, cur.weeks || {});
       const k = `${y}-${m}-${w}`;
       if (!num) delete weeks[k];
       else weeks[k] = num;
-      row.weeks = weeks;
+      projRows[teamId] = Object.assign({}, cur, { weeks });
       touched = true;
       td.classList.remove('fill-target');
     });
-    if (touched) {
-      Store.write(ProjectData.STORE_ROWS, allRowsState);
-      allRows = allRowsState;
-    }
+    if (touched) ProjectData.saveAllRows(all);
+
     drag = null;
     document.removeEventListener('mousemove', onFillMove);
     render();

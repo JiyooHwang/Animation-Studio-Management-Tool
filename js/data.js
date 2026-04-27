@@ -132,15 +132,60 @@ const Projects = {
 
 // 프로젝트 페이지 행 데이터 + 집계 helper
 // 비용 페이지(총비용/내부비용/외주비), 인원 페이지(주별 리소스합) 모두 여기서 derive
+//
+// 데이터 모델 v2: 각 프로젝트가 팀별 1행을 고정 보유
+//   { [projectId]: { [teamId]: { kind: '내부'|'외주', weeks: {key: n}, rateOverride?, externalCost? } } }
 const ProjectData = {
-  STORE_ROWS: 'project.rows.v1',
+  STORE_ROWS: 'project.rows.v2',
+  STORE_ROWS_LEGACY: 'project.rows.v1',
 
+  // 모든 프로젝트의 행 데이터 (team-id로 키된 맵)
   allRows() {
-    return Store.read(this.STORE_ROWS, {});
+    let stored = Store.read(this.STORE_ROWS, null);
+    if (stored) return stored;
+    // v1(배열) → v2(team-id 맵) 마이그레이션
+    const legacy = Store.read(this.STORE_ROWS_LEGACY, null);
+    const out = {};
+    if (legacy && typeof legacy === 'object') {
+      Object.entries(legacy).forEach(([pid, rows]) => {
+        const map = {};
+        if (Array.isArray(rows)) {
+          rows.forEach((r) => {
+            if (!r || !r.teamId) return;
+            if (map[r.teamId]) return; // 중복 시 첫 번째 행 유지
+            map[r.teamId] = {
+              kind: r.kind || '내부',
+              weeks: r.weeks || {},
+              rateOverride: r.rateOverride,
+              externalCost: (r.kind === '외주' && r.manualCost) ? Number(r.manualCost) || 0 : 0,
+            };
+          });
+        }
+        out[pid] = map;
+      });
+    }
+    Store.write(this.STORE_ROWS, out);
+    return out;
   },
 
-  rows(projectId) {
-    return this.allRows()[projectId] || [];
+  saveAllRows(all) {
+    Store.write(this.STORE_ROWS, all);
+  },
+
+  // 프로젝트의 팀별 행 조회 (없으면 default)
+  rowFor(projectId, teamId) {
+    const all = this.allRows();
+    const projRows = all[projectId] || {};
+    return projRows[teamId] || { kind: '내부', weeks: {}, rateOverride: undefined, externalCost: 0 };
+  },
+
+  // 단일 행 업데이트
+  setRow(projectId, teamId, patch) {
+    const all = this.allRows();
+    if (!all[projectId]) all[projectId] = {};
+    const cur = all[projectId][teamId] || { kind: '내부', weeks: {}, externalCost: 0 };
+    all[projectId][teamId] = Object.assign({}, cur, patch);
+    this.saveAllRows(all);
   },
 
   rowResources(row) {
@@ -154,26 +199,36 @@ const ProjectData = {
     if (row && row.rateOverride !== undefined && row.rateOverride !== null && row.rateOverride !== '') {
       return Number(row.rateOverride) || 0;
     }
-    return Projects.rateFor(row && row.teamId);
+    // teamId는 row 객체에 직접 들어있지 않음 — 호출자가 알고 있어야 함
+    return Projects.rateFor(row && row._teamId);
   },
 
-  // manualCost가 있으면 우선 사용 (외주비 항목 직접 입력 등)
-  rowCost(row) {
-    if (row && row.manualCost !== undefined && row.manualCost !== null && row.manualCost !== '') {
-      return Number(row.manualCost) || 0;
-    }
-    return this.rowResources(row) * this.rowRate(row);
+  // teamId를 행에 주입한 형태로 조회 (rowRate 계산을 위해)
+  withTeamId(projectId, teamId) {
+    const r = this.rowFor(projectId, teamId);
+    return Object.assign({ _teamId: teamId }, r);
+  },
+
+  // 내부비용 = (kind==내부일 때) resources × rate, 그 외엔 0
+  rowInternalCost(projectId, teamId) {
+    const r = this.withTeamId(projectId, teamId);
+    if (r.kind !== '내부') return 0;
+    return this.rowResources(r) * this.rowRate(r);
+  },
+
+  // 외주비용 = 항상 사용자 입력값 (externalCost)
+  rowExternalCost(projectId, teamId) {
+    const r = this.rowFor(projectId, teamId);
+    return Number(r.externalCost) || 0;
   },
 
   // 비용 페이지에 표시할 프로젝트 별 총합
   totalsFor(projectId) {
-    const rows = this.rows(projectId);
     let internal = 0;
     let external = 0;
-    rows.forEach((r) => {
-      const c = this.rowCost(r);
-      if (r.kind === '내부') internal += c;
-      else if (r.kind === '외주') external += c;
+    TEAMS.forEach((t) => {
+      internal += this.rowInternalCost(projectId, t.id);
+      external += this.rowExternalCost(projectId, t.id);
     });
     return { 내부비용: internal, 외주비: external, 총비용: internal + external };
   },
@@ -183,13 +238,13 @@ const ProjectData = {
     const all = this.allRows();
     const key = `${year}-${month}-${week}`;
     let s = 0;
-    Object.entries(all).forEach(([pid, rows]) => {
+    Object.entries(all).forEach(([pid, projRows]) => {
       if (projectFilter && projectFilter !== 'ALL' && pid !== projectFilter) return;
-      rows.forEach((r) => {
-        if (!r || r.teamId !== teamId) return;
-        const v = (r.weeks || {})[key];
-        if (v !== undefined && v !== null && v !== '') s += Number(v) || 0;
-      });
+      if (!projRows || typeof projRows !== 'object') return;
+      const row = projRows[teamId];
+      if (!row) return;
+      const v = (row.weeks || {})[key];
+      if (v !== undefined && v !== null && v !== '') s += Number(v) || 0;
     });
     return s;
   },
