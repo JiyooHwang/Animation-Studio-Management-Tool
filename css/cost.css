@@ -151,3 +151,27 @@
   align-items: center;
   margin-bottom: 8px;
 }
+
+/* 프로젝트 페이지에서 자동 derive된 월별 비용 행 */
+.cost-table .monthly-derived-row .monthly-derived-label {
+  background: #2c2c2c;
+  color: #fff;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+.cost-table .monthly-derived-row .monthly-derived-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.cost-table .monthly-derived-row.total .monthly-derived-cell {
+  background: #fde68a;
+  font-weight: 600;
+}
+.cost-table .monthly-derived-row.internal .monthly-derived-cell {
+  background: #fff7a8;
+}
+.cost-table .monthly-derived-row.external .monthly-derived-cell {
+  background: #fce4ec;
+}

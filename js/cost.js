@@ -211,6 +211,34 @@ const CostPage = (function () {
           return `<td class="value-cell">${formatNumber(bill - recog, { zeroAsBlank: true })}</td>`;
         }).join('')}
       </tr>
+      ${renderHQMonthlyRows(all)}
+    `;
+  }
+
+  // 본부 전체 - 모든 프로젝트의 월별 derived 비용 합계
+  function renderHQMonthlyRows(all) {
+    const aggCellsFor = (key) => MONTHS.map((m) => {
+      let s = 0;
+      all.forEach((p) => {
+        const mc = ProjectData.monthlyCostFor(p.id, filter.year, m);
+        s += mc[key] || 0;
+      });
+      return `<td class="value-cell monthly-derived-cell">${formatNumber(Math.round(s), { zeroAsBlank: true })}</td>`;
+    }).join('');
+
+    return `
+      <tr class="monthly-derived-row total">
+        <td colspan="8" class="monthly-derived-label">월별 총비용 (본부 전체)</td>
+        ${aggCellsFor('total')}
+      </tr>
+      <tr class="monthly-derived-row internal">
+        <td colspan="8" class="monthly-derived-label">월별 내부비용</td>
+        ${aggCellsFor('internal')}
+      </tr>
+      <tr class="monthly-derived-row external">
+        <td colspan="8" class="monthly-derived-label">월별 외주비용</td>
+        ${aggCellsFor('external')}
+      </tr>
     `;
   }
 
@@ -273,6 +301,31 @@ const CostPage = (function () {
         <td colspan="2" class="value-cell ${profit < 0 ? 'red-text' : ''}">${formatNumber(profit)} <span style="color:#999;">(${rate.toFixed(2)}%)</span></td>
         <td colspan="2" class="value-cell ${billBal < 0 ? 'red-text' : ''}">잔액(청구): ${formatNumber(billBal, { zeroAsBlank: true })}</td>
         <td colspan="${MONTHS.length}"></td>
+      </tr>
+      ${renderMonthlyDerivedRows(p.id)}
+    `;
+  }
+
+  // 프로젝트 페이지에서 derive한 월별 비용 row 3개 (총비용 / 내부비용 / 외주비용)
+  function renderMonthlyDerivedRows(projectId) {
+    const cellsFor = (key) => MONTHS.map((m) => {
+      const mc = ProjectData.monthlyCostFor(projectId, filter.year, m);
+      const v = Math.round(mc[key] || 0);
+      return `<td class="value-cell monthly-derived-cell">${formatNumber(v, { zeroAsBlank: true })}</td>`;
+    }).join('');
+
+    return `
+      <tr class="monthly-derived-row total">
+        <td colspan="8" class="monthly-derived-label">월별 총비용 <span style="font-weight:400; color:#999; font-size:10px;">(프로젝트 페이지에서 자동)</span></td>
+        ${cellsFor('total')}
+      </tr>
+      <tr class="monthly-derived-row internal">
+        <td colspan="8" class="monthly-derived-label">월별 내부비용</td>
+        ${cellsFor('internal')}
+      </tr>
+      <tr class="monthly-derived-row external">
+        <td colspan="8" class="monthly-derived-label">월별 외주비용</td>
+        ${cellsFor('external')}
       </tr>
     `;
   }

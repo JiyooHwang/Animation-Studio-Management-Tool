@@ -233,6 +233,32 @@ const ProjectData = {
     return { 내부비용: internal, 외주비: external, 총비용: internal + external };
   },
 
+  // 프로젝트의 (year, month) 월별 비용 - 그 달 4주의 리소스를 기준으로 계산
+  // - 내부비용 = (kind=='내부') ? 월별 리소스 × 단가 : 0
+  // - 외주비용 = externalCost(lump sum) × (월별 리소스 / 총 리소스)  비율 분배
+  // - 총비용 = 내부 + 외주
+  monthlyCostFor(projectId, year, month) {
+    let internal = 0;
+    let external = 0;
+    TEAMS.forEach((t) => {
+      const r = this.withTeamId(projectId, t.id);
+      const monthRes = [1, 2, 3, 4].reduce((s, w) => {
+        const k = `${year}-${month}-${w}`;
+        return s + (Number((r.weeks || {})[k]) || 0);
+      }, 0);
+      if (monthRes <= 0) return;
+      const totalRes = this.rowResources(r);
+      if (r.kind === '내부') {
+        internal += monthRes * this.rowRate(r);
+      }
+      const ext = Number(r.externalCost) || 0;
+      if (totalRes > 0 && ext > 0) {
+        external += (monthRes / totalRes) * ext;
+      }
+    });
+    return { internal, external, total: internal + external };
+  },
+
   // 인원 페이지의 (team, year, month, week) 셀 값 - projectFilter('ALL' | projectId) 적용
   headcountFor(teamId, year, month, week, projectFilter) {
     const all = this.allRows();
