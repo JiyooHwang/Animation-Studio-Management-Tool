@@ -139,6 +139,14 @@
   text-align: right;
   background: #f8d7da;
 }
+.project-table .col-cost-total {
+  background: #fff7a8;
+  font-weight: 600;
+}
+.project-table tfoot .col-cost-total {
+  background: #fde68a;
+  font-weight: 700;
+}
 .project-table .col-resource {
   width: 64px;
   text-align: right;

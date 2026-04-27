@@ -182,6 +182,7 @@ const ProjectPage = (function () {
       <th class="col-kind" rowspan="3">분류</th>
       <th class="col-resource" rowspan="3">리소스합</th>
       <th class="col-rate" rowspan="3">주당단가</th>
+      <th class="col-cost col-cost-total" rowspan="3">총비용</th>
       <th class="col-cost" rowspan="3">내부비용</th>
       <th class="col-cost" rowspan="3">외주비용</th>
     `;
@@ -220,13 +221,14 @@ const ProjectPage = (function () {
             <td colspan="3" style="text-align:center;">합계</td>
             <td class="col-resource">${totalResources || ''}</td>
             <td class="col-rate"></td>
+            <td class="col-cost col-cost-total">${formatNumber(totalCost, { zeroAsBlank: true })}</td>
             <td class="col-cost">${formatNumber(totalInternal, { zeroAsBlank: true })}</td>
             <td class="col-cost">${formatNumber(totalExternal, { zeroAsBlank: true })}</td>
             ${totalsWeek}
           </tr>
           <tr>
             <td colspan="3" style="text-align:center;">총비용</td>
-            <td colspan="${4 + months.length * WEEKS_PER_MONTH}" style="text-align:right; padding-right:14px; background:#fff7a8;">${formatNumber(totalCost)}</td>
+            <td colspan="${5 + months.length * WEEKS_PER_MONTH}" style="text-align:right; padding-right:14px; background:#fff7a8; font-weight:700;">${formatNumber(totalCost)}</td>
           </tr>
         </tfoot>
       </table>
@@ -272,6 +274,7 @@ const ProjectPage = (function () {
         </td>
         <td class="col-resource">${resources || ''}</td>
         <td class="col-rate"><input class="proj-rate-input" type="text" data-action="rate" data-team="${team.id}" value="${rateDisplay}" /></td>
+        <td class="col-cost col-cost-total" title="총비용 = 내부비용 + 외주비용">${formatNumber(rowTotal, { zeroAsBlank: true })}</td>
         <td class="col-cost" title="자동 계산: 리소스합 × 단가 (내부일 때)">${formatNumber(internalCost, { zeroAsBlank: true })}</td>
         <td class="col-cost"><input class="proj-cost-input" type="text" data-action="external" data-team="${team.id}" value="${externalCost ? formatNumber(externalCost) : ''}" placeholder="0" /></td>
         ${weekCells}

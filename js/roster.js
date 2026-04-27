@@ -163,7 +163,7 @@ const RosterPage = (function () {
       return `<th class="${cls}">${m.month}월</th>`;
     }).join('');
 
-    // 합계 row
+    // 합계 row - 해당 월에 재직 중인 전체 인원의 monthly 값 합 (0이어도 명시적으로 표시)
     const sumCells = months.map((m, mi) => {
       let s = 0;
       people.forEach((p) => {
@@ -172,7 +172,7 @@ const RosterPage = (function () {
       });
       const isYearEnd = mi < months.length - 1 && months[mi + 1].year !== m.year;
       const cls = isYearEnd ? 'sum-header year-end' : 'sum-header';
-      return `<th class="${cls}">${s ? formatSum(s) : ''}</th>`;
+      return `<th class="${cls}">${formatSum(s)}</th>`;
     }).join('');
 
     const bodyRows = people.map((p) => renderPersonRow(p, months)).join('');
