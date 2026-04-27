@@ -1,0 +1,136 @@
+/* ===== Personnel page ===== */
+
+.personnel-wrap {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: auto;
+}
+
+.personnel-table {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: max-content;
+  min-width: 100%;
+}
+
+.personnel-table th,
+.personnel-table td {
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.personnel-table thead th {
+  background: var(--row-header);
+  color: #fff;
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.personnel-table .col-team {
+  width: 160px;
+  background: #fafafa;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+.personnel-table .col-role {
+  width: 170px;
+  text-align: center;
+  font-weight: 600;
+}
+.personnel-table .col-members {
+  width: 280px;
+  background: #fff;
+}
+.personnel-table .col-month {
+  width: 60px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.personnel-table tfoot td {
+  background: #f0f0f0;
+  font-weight: 700;
+}
+
+.member-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 8px;
+  background: #eef2ff;
+  color: #1e3a8a;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.member-chip button {
+  background: none;
+  border: none;
+  color: #1e3a8a;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.55;
+}
+.member-chip button:hover { opacity: 1; color: var(--danger); }
+
+.add-form { display: inline-flex; gap: 2px; align-items: center; }
+.add-form input {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 11px;
+  width: 90px;
+}
+.add-form input:focus { outline: none; border-color: var(--primary); }
+.add-form button {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
+  border-radius: 3px;
+  padding: 2px 7px;
+  font-size: 11px;
+}
+.add-form button:hover { background: var(--primary-dark); }
+
+.cell-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 0;
+  color: inherit;
+}
+.cell-input:focus {
+  outline: 1.5px solid var(--primary);
+  background: #fff;
+}
+
+.month-pos { color: var(--pos); }
+.month-neg { color: var(--neg); }
+.month-zero { background: var(--neutral-bg); color: var(--text-dim); }
+
+.year-marker {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin-top: 2px;
+}
