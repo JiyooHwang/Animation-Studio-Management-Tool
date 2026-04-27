@@ -154,8 +154,8 @@
 
 /* 프로젝트 페이지에서 자동 derive된 월별 비용 행 */
 .cost-table .monthly-derived-row .monthly-derived-label {
-  background: #2c2c2c;
-  color: #fff;
+  background: #e5e5e5;
+  color: var(--text);
   font-weight: 600;
   text-align: center;
   letter-spacing: 0.04em;
