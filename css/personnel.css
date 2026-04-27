@@ -9,7 +9,7 @@
 
 .personnel-table {
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 11.5px;
   width: max-content;
   min-width: 100%;
 }
@@ -17,40 +17,75 @@
 .personnel-table th,
 .personnel-table td {
   border: 1px solid var(--line);
-  padding: 6px 8px;
+  padding: 4px 4px;
   vertical-align: middle;
 }
 
-.personnel-table thead th {
-  background: var(--row-header);
-  color: #fff;
-  font-weight: 500;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-align: center;
-  white-space: nowrap;
-}
-
 .personnel-table .col-team {
-  width: 160px;
+  width: 170px;
   background: #fafafa;
   font-weight: 600;
   text-align: left;
   white-space: nowrap;
+  padding-left: 10px;
 }
 .personnel-table .col-role {
-  width: 170px;
+  width: 180px;
   text-align: center;
   font-weight: 600;
+  white-space: nowrap;
+  padding: 6px 8px;
 }
-.personnel-table .col-members {
-  width: 280px;
-  background: #fff;
-}
-.personnel-table .col-month {
-  width: 60px;
+
+.personnel-table .col-week {
+  width: 36px;
+  min-width: 36px;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  padding: 3px 2px;
+}
+
+/* Header rows */
+.personnel-table thead .year-header {
+  background: #fff7a8;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  border-bottom: 2px solid var(--line-strong);
+}
+.personnel-table thead .month-header {
+  background: var(--row-header);
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  text-align: center;
+}
+.personnel-table thead .week-header {
+  background: #4a4a4a;
+  color: #fff;
+  font-weight: 400;
+  font-size: 10px;
+  text-align: center;
+  padding: 2px;
+}
+
+/* Top-left fixed corner cell (팀 + 역할 spans 3 rows) */
+.personnel-table thead .corner-team,
+.personnel-table thead .corner-role {
+  background: #fff7a8;
+  color: var(--text);
+  font-weight: 700;
+  text-align: center;
+  font-size: 13px;
+}
+
+/* Month divider - thicker border between months */
+.personnel-table .month-end {
+  border-right: 2px solid #999;
+}
+.personnel-table .year-end {
+  border-right: 3px solid var(--line-strong);
 }
 
 .personnel-table tfoot td {
@@ -58,63 +93,14 @@
   font-weight: 700;
 }
 
-.member-cell {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-}
-.member-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 6px 2px 8px;
-  background: #eef2ff;
-  color: #1e3a8a;
-  border: 1px solid #c7d2fe;
-  border-radius: 999px;
-  font-size: 11px;
-  line-height: 1.4;
-  white-space: nowrap;
-}
-.member-chip button {
-  background: none;
-  border: none;
-  color: #1e3a8a;
-  font-size: 13px;
-  line-height: 1;
-  padding: 0;
-  opacity: 0.55;
-}
-.member-chip button:hover { opacity: 1; color: var(--danger); }
-
-.add-form { display: inline-flex; gap: 2px; align-items: center; }
-.add-form input {
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  padding: 2px 6px;
-  font-size: 11px;
-  width: 90px;
-}
-.add-form input:focus { outline: none; border-color: var(--primary); }
-.add-form button {
-  border: 1px solid var(--primary);
-  background: var(--primary);
-  color: #fff;
-  border-radius: 3px;
-  padding: 2px 7px;
-  font-size: 11px;
-}
-.add-form button:hover { background: var(--primary-dark); }
-
 .cell-input {
   width: 100%;
   border: none;
   background: transparent;
   text-align: center;
-  font-size: 12px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
-  padding: 2px 0;
+  padding: 1px 0;
   color: inherit;
 }
 .cell-input:focus {
@@ -123,14 +109,8 @@
 }
 
 .month-pos { color: var(--pos); }
+.month-pos .cell-input { color: var(--pos); }
 .month-neg { color: var(--neg); }
+.month-neg .cell-input { color: var(--neg); }
 .month-zero { background: var(--neutral-bg); color: var(--text-dim); }
-
-.year-marker {
-  display: block;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 4px;
-  border-radius: 2px;
-  margin-top: 2px;
-}
+.month-zero .cell-input { color: var(--text-dim); }
