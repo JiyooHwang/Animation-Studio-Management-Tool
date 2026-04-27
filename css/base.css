@@ -1,0 +1,53 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f5f5;
+  --card: #ffffff;
+  --line: #d4d4d4;
+  --line-soft: #ececec;
+  --line-strong: #1f1f1f;
+  --text: #1f1f1f;
+  --text-dim: #666;
+  --text-faint: #999;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --danger: #dc2626;
+  --pos: #b30000;
+  --neg: #1d4ed8;
+  --neutral-bg: #d9d9d9;
+  --row-yellow: #fff7a8;
+  --row-pink: #f8d7da;
+  --row-header: #2c2c2c;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input, select {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.hidden { display: none !important; }
+.text-pos { color: var(--pos); }
+.text-neg { color: var(--neg); }
+.text-dim { color: var(--text-dim); }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
