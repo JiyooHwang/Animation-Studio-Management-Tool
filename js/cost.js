@@ -60,10 +60,12 @@ const CostPage = (function () {
   function calcBalance(proj) {
     // 전년도 누적 데이터가 입력되어 있을 때만 잔액 계산.
     // 누적이 0/미입력이면 잔액도 0으로 표기 (예산 그대로 표시되는 것 방지).
-    const recog = proj.cum25.매출인식 || 0;
-    const bill = proj.cum25.청구 || 0;
-    const salesBal = recog > 0 ? (proj.budget.예산 || 0) - recog : 0;
-    const billBal = bill > 0 ? (proj.budget.청구가능비용 || 0) - bill : 0;
+    const cum = proj && proj.cum25 ? proj.cum25 : {};
+    const budget = proj && proj.budget ? proj.budget : {};
+    const recog = Number(cum.매출인식) || 0;
+    const bill = Number(cum.청구) || 0;
+    const salesBal = recog > 0 ? (Number(budget.예산) || 0) - recog : 0;
+    const billBal = bill > 0 ? (Number(budget.청구가능비용) || 0) - bill : 0;
     return { salesBal, billBal };
   }
 
