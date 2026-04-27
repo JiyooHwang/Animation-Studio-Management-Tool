@@ -101,12 +101,24 @@ const RosterPage = (function () {
     const months = periodMonths();
     const last = months[months.length - 1];
 
+    // 월별 합계 중 최댓값 = 표시 기간 내 피크 재직 인원
+    const monthlySums = months.map((m) => {
+      let s = 0;
+      people.forEach((p) => {
+        const v = (p.monthly || {})[monthKey(m.year, m.month)];
+        if (v !== undefined && v !== null && v !== '') s += Number(v) || 0;
+      });
+      return s;
+    });
+    const peakHeadcount = monthlySums.length ? Math.max(0, ...monthlySums) : 0;
+
     mountEl.innerHTML = `
       <div class="topbar">
         <h1>본부 인원 (직원 명단)</h1>
         <div class="summary">
           기간 <strong>${period.startYear}.${pad(period.startMonth)} ~ ${last.year}.${pad(last.month)}</strong>
-          · 인원 <strong>${people.length}</strong>명
+          · 등록 행 ${people.length}건
+          · 인원 <strong>${formatSum(peakHeadcount)}</strong>명
         </div>
       </div>
       ${renderToolbar()}

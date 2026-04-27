@@ -251,6 +251,30 @@
   font-weight: 700;
 }
 
+/* 월별 비용 breakdown rows */
+.project-table tfoot .monthly-row .monthly-label {
+  text-align: center;
+  background: #2c2c2c;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.project-table tfoot .monthly-row .monthly-cell {
+  text-align: right;
+  padding-right: 6px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.project-table tfoot .monthly-row-total .monthly-cell {
+  background: #fde68a;
+}
+.project-table tfoot .monthly-row-internal .monthly-cell {
+  background: #fff7a8;
+}
+.project-table tfoot .monthly-row-external .monthly-cell {
+  background: #fce4ec;
+}
+
 .proj-select-row {
   border: none;
   background: transparent;

@@ -208,6 +208,39 @@ const ProjectPage = (function () {
       0
     );
 
+    // 월별 비용 계산 - 각 팀의 그 달 리소스(4주 합)를 기준으로 derive
+    const monthlyBreakdown = months.map((m) => {
+      let monthInternal = 0;
+      let monthExternal = 0;
+      TEAMS.forEach((t) => {
+        const r = ProjectData.withTeamId(state.projectId, t.id);
+        const monthRes = [1, 2, 3, 4].reduce((s, w) => {
+          return s + (Number((r.weeks || {})[weekKey(m.year, m.month, w)]) || 0);
+        }, 0);
+        const totalRes = ProjectData.rowResources(r);
+        // 내부비용 = 그 달 리소스 × 단가 (kind=='내부'일 때)
+        if (r.kind === '내부') {
+          monthInternal += monthRes * ProjectData.rowRate(r);
+        }
+        // 외주비용은 lump sum이므로 월별 리소스 비율로 분배
+        const ext = Number(r.externalCost) || 0;
+        if (totalRes > 0 && ext > 0) {
+          monthExternal += (monthRes / totalRes) * ext;
+        }
+      });
+      return {
+        internal: monthInternal,
+        external: monthExternal,
+        total: monthInternal + monthExternal,
+      };
+    });
+
+    const monthlyCells = (key) => monthlyBreakdown.map((mb, mi) => {
+      const isYearEnd = mi < months.length - 1 && months[mi + 1].year !== months[mi].year;
+      const cls = ['monthly-cell', isYearEnd ? 'year-end' : ''].filter(Boolean).join(' ');
+      return `<td class="${cls}" colspan="${WEEKS_PER_MONTH}">${formatNumber(Math.round(mb[key]), { zeroAsBlank: true })}</td>`;
+    }).join('');
+
     return `
       <table class="project-table">
         <thead>
@@ -225,6 +258,18 @@ const ProjectPage = (function () {
             <td class="col-cost">${formatNumber(totalInternal, { zeroAsBlank: true })}</td>
             <td class="col-cost">${formatNumber(totalExternal, { zeroAsBlank: true })}</td>
             ${totalsWeek}
+          </tr>
+          <tr class="monthly-row monthly-row-total">
+            <td colspan="8" class="monthly-label">월별 총비용</td>
+            ${monthlyCells('total')}
+          </tr>
+          <tr class="monthly-row monthly-row-internal">
+            <td colspan="8" class="monthly-label">월별 내부비용</td>
+            ${monthlyCells('internal')}
+          </tr>
+          <tr class="monthly-row monthly-row-external">
+            <td colspan="8" class="monthly-label">월별 외주비용</td>
+            ${monthlyCells('external')}
           </tr>
           <tr>
             <td colspan="3" style="text-align:center;">총비용</td>
