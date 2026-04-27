@@ -81,7 +81,7 @@
 }
 
 .proj-name-input {
-  width: 100%;
+  width: calc(100% - 18px);
   border: 1px dashed transparent;
   background: transparent;
   text-align: center;
@@ -98,6 +98,19 @@
   border-color: var(--primary);
   background: #fff;
 }
+
+.btn-proj-del {
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  vertical-align: middle;
+}
+.cost-table .col-project:hover .btn-proj-del { color: var(--text-dim); }
+.btn-proj-del:hover { color: var(--danger) !important; }
 .cost-table .col-month { width: 110px; }
 .cost-table .col-cumulative { width: 130px; }
 

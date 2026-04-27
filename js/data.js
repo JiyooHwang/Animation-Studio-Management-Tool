@@ -39,29 +39,71 @@ const DEFAULT_PROJECTS = [
   { id: 'denma',    category: '내부제작', name: '덴마' },
 ];
 
-// 프로젝트명 / 주당단가 헬퍼 (이름 사용자 편집 가능)
+// 프로젝트 목록 / 주당단가 헬퍼 (사용자 추가/삭제/이름 편집 가능)
 const Projects = {
-  STORE_NAMES: 'projects.names.v1',
+  STORE_LIST: 'projects.list.v1',     // [ { id, category, name } ]
   STORE_RATES: 'projects.rates.v1',
+  STORE_NAMES_LEGACY: 'projects.names.v1', // 마이그레이션용
   DEFAULT_RATES: { exec: 3000000, premium: 2520000, standard: 2030000 },
 
+  list() {
+    let stored = Store.read(this.STORE_LIST, null);
+    if (!stored) {
+      // 이전 버전(이름만 저장)에서 마이그레이션
+      const legacy = Store.read(this.STORE_NAMES_LEGACY, {});
+      stored = DEFAULT_PROJECTS.map((p) => ({
+        ...p,
+        name: legacy[p.id] || p.name,
+      }));
+      Store.write(this.STORE_LIST, stored);
+    }
+    return stored;
+  },
+
+  saveList(list) {
+    Store.write(this.STORE_LIST, list);
+  },
+
   getName(id) {
-    const names = Store.read(this.STORE_NAMES, {});
-    if (names[id]) return names[id];
-    const p = DEFAULT_PROJECTS.find((x) => x.id === id);
+    const p = this.list().find((x) => x.id === id);
     return p ? p.name : '';
   },
 
   setName(id, name) {
-    const names = Store.read(this.STORE_NAMES, {});
+    const list = this.list();
+    const p = list.find((x) => x.id === id);
+    if (!p) return;
     const trimmed = (name || '').trim();
-    if (trimmed) names[id] = trimmed;
-    else delete names[id];
-    Store.write(this.STORE_NAMES, names);
+    p.name = trimmed || p.name;
+    this.saveList(list);
   },
 
-  list() {
-    return DEFAULT_PROJECTS.map((p) => ({ ...p, name: this.getName(p.id) }));
+  add(name, category) {
+    const list = this.list();
+    const id = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    list.push({
+      id,
+      category: category || '내부제작',
+      name: (name || '').trim() || '신규 프로젝트',
+    });
+    this.saveList(list);
+    return id;
+  },
+
+  remove(id) {
+    const list = this.list().filter((p) => p.id !== id);
+    this.saveList(list);
+    // 연결된 데이터(프로젝트 행 / 비용 데이터)도 청소
+    const allRows = Store.read(ProjectData.STORE_ROWS, {});
+    if (allRows[id]) {
+      delete allRows[id];
+      Store.write(ProjectData.STORE_ROWS, allRows);
+    }
+    const cost = Store.read('cost.v1', {});
+    if (cost[id]) {
+      delete cost[id];
+      Store.write('cost.v1', cost);
+    }
   },
 
   filterOptions() {

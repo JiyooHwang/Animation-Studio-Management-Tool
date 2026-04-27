@@ -154,7 +154,38 @@
   min-width: 36px;
   text-align: center;
   padding: 3px 2px;
+  position: relative;
 }
+
+/* 드래그 채우기 핸들 */
+.project-table .fill-handle {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 7px;
+  height: 7px;
+  background: var(--primary);
+  border: 1px solid #fff;
+  cursor: crosshair;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+  z-index: 2;
+  user-select: none;
+}
+.project-table td[data-week-cell="1"]:hover .fill-handle,
+.project-table td[data-week-cell="1"]:focus-within .fill-handle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 드래그 중 타겟 셀 표시 */
+.project-table td.fill-target {
+  outline: 2px dashed var(--primary);
+  outline-offset: -2px;
+  background: rgba(37, 99, 235, 0.12) !important;
+}
+.project-table td.fill-target input { background: transparent; }
 
 .project-table .col-actions {
   width: 36px;

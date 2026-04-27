@@ -108,6 +108,7 @@ const CostPage = (function () {
         <label>프로젝트</label>
         <select id="c-project">${projOpts}</select>
         <span class="spacer"></span>
+        <button class="btn primary" id="c-add-project" type="button">+ 프로젝트 추가</button>
         <button class="btn ghost" id="c-clear">월별 초기화</button>
       </div>
     `;
@@ -232,7 +233,10 @@ const CostPage = (function () {
     return `
       <tr>
         <td rowspan="3" class="col-class">${escapeHtml(p.category)}</td>
-        <td rowspan="3" class="col-project"><input class="proj-name-input" type="text" data-action="rename" data-project="${p.id}" value="${escapeHtml(p.name)}" /></td>
+        <td rowspan="3" class="col-project">
+          <input class="proj-name-input" type="text" data-action="rename" data-project="${p.id}" value="${escapeHtml(p.name)}" />
+          <button class="btn-proj-del" type="button" data-action="del-project" data-project="${p.id}" title="프로젝트 삭제">×</button>
+        </td>
         <td class="label-cell">예산</td>
         <td class="value-yellow"><input class="cell-num" type="text" data-action="budget" data-project="${p.id}" data-field="예산" value="${proj.budget.예산 ? formatNumber(proj.budget.예산) : ''}" placeholder="0"/></td>
         <td class="label-pink">총비용</td>
@@ -310,6 +314,33 @@ const CostPage = (function () {
     mountEl.querySelectorAll('input.proj-name-input').forEach((input) => {
       input.addEventListener('change', () => {
         Projects.setName(input.dataset.project, input.value);
+        render();
+      });
+    });
+
+    // 프로젝트 추가
+    const addBtn = mountEl.querySelector('#c-add-project');
+    if (addBtn) addBtn.addEventListener('click', () => {
+      const name = prompt('새 프로젝트 이름을 입력하세요:', '');
+      if (name === null) return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      Projects.add(trimmed);
+      render();
+    });
+
+    // 프로젝트 삭제
+    mountEl.querySelectorAll('[data-action="del-project"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.project;
+        const name = Projects.getName(id);
+        if (!confirm(`프로젝트 "${name}" 을(를) 삭제할까요?\n관련 비용/투입 인력 데이터도 함께 삭제됩니다.`)) return;
+        Projects.remove(id);
+        // 필터가 삭제된 프로젝트를 가리키고 있으면 ALL로
+        if (filter.project === id) {
+          filter.project = 'ALL';
+          Store.write(STORE_FILTER, filter);
+        }
         render();
       });
     });

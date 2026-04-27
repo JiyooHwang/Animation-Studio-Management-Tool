@@ -288,7 +288,7 @@ const ProjectPage = (function () {
         const v = (row.weeks || {})[weekKey(m.year, m.month, w)] || '';
         const cls = wi === 3 ? `col-week ${groupEnd}` : 'col-week';
         const styleBg = v && team ? `style="background:${color}; color:${textColor};"` : '';
-        return `<td class="${cls}" ${styleBg}><input class="proj-row-input" type="text" data-action="week" data-row="${row.id}" data-year="${m.year}" data-month="${m.month}" data-week="${w}" value="${v || ''}" placeholder=""/></td>`;
+        return `<td class="${cls}" ${styleBg} data-week-cell="1" data-row="${row.id}" data-year="${m.year}" data-month="${m.month}" data-week="${w}"><input class="proj-row-input" type="text" data-action="week" data-row="${row.id}" data-year="${m.year}" data-month="${m.month}" data-week="${w}" value="${v || ''}" placeholder=""/><span class="fill-handle" data-fill-handle="1" title="드래그하여 같은 값 채우기"></span></td>`;
       }).join('');
     }).join('');
 
@@ -439,6 +439,85 @@ const ProjectPage = (function () {
     mountEl.querySelectorAll('[data-action="del"]').forEach((btn) => {
       btn.addEventListener('click', () => deleteRow(btn.dataset.row));
     });
+
+    bindDragFill();
+  }
+
+  // 구글 스프레드시트 스타일 드래그 채우기 (week 셀의 fill-handle을 잡고 드래그)
+  let drag = null;
+
+  function bindDragFill() {
+    mountEl.querySelectorAll('[data-fill-handle="1"]').forEach((h) => {
+      h.addEventListener('mousedown', onFillStart);
+    });
+  }
+
+  function onFillStart(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const handle = e.currentTarget;
+    const startTd = handle.closest('td[data-week-cell="1"]');
+    if (!startTd) return;
+    const startInput = startTd.querySelector('input.proj-row-input');
+    if (!startInput) return;
+
+    drag = {
+      sourceValue: startInput.value,
+      targets: new Map(), // key = `${row}|${year}|${month}|${week}` → td
+    };
+    addDragTarget(startTd);
+
+    document.addEventListener('mousemove', onFillMove);
+    document.addEventListener('mouseup', onFillEnd, { once: true });
+  }
+
+  function addDragTarget(td) {
+    if (!drag) return;
+    const key = `${td.dataset.row}|${td.dataset.year}|${td.dataset.month}|${td.dataset.week}`;
+    if (drag.targets.has(key)) return;
+    drag.targets.set(key, td);
+    td.classList.add('fill-target');
+  }
+
+  function onFillMove(e) {
+    if (!drag) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el) return;
+    const td = el.closest && el.closest('td[data-week-cell="1"]');
+    if (!td) return;
+    addDragTarget(td);
+  }
+
+  function onFillEnd() {
+    if (!drag) return;
+    const num = parseNumber(drag.sourceValue);
+    // 행 단위로 그룹핑하여 한 번에 setRowsForCurrent 호출 (현재 프로젝트 한정)
+    const allRowsState = ProjectData.allRows();
+    let touched = false;
+    drag.targets.forEach((td) => {
+      const rowId = td.dataset.row;
+      const y = Number(td.dataset.year);
+      const m = Number(td.dataset.month);
+      const w = Number(td.dataset.week);
+      // 현재 프로젝트의 행에서만 수정
+      const rows = allRowsState[state.projectId] || [];
+      const row = rows.find((r) => r.id === rowId);
+      if (!row) return;
+      const weeks = Object.assign({}, row.weeks || {});
+      const k = `${y}-${m}-${w}`;
+      if (!num) delete weeks[k];
+      else weeks[k] = num;
+      row.weeks = weeks;
+      touched = true;
+      td.classList.remove('fill-target');
+    });
+    if (touched) {
+      Store.write(ProjectData.STORE_ROWS, allRowsState);
+      allRows = allRowsState;
+    }
+    drag = null;
+    document.removeEventListener('mousemove', onFillMove);
+    render();
   }
 
   function pad(n) { return String(n).padStart(2, '0'); }
