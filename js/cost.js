@@ -117,14 +117,13 @@ const CostPage = (function () {
     const list = projectsToShow();
     const all = Projects.list();
 
-    // 본부 전체 합계
+    // 본부 전체 합계 - 프로젝트 페이지 데이터에서 derive
     const total = { 총비용: 0, 내부비용: 0, 외주비: 0 };
     all.forEach((p) => {
-      const pd = data[p.id];
-      if (!pd) return;
-      total.총비용 += pd.cost.총비용 || 0;
-      total.내부비용 += pd.cost.내부비용 || 0;
-      total.외주비 += pd.cost.외주비 || 0;
+      const t = ProjectData.totalsFor(p.id);
+      total.총비용 += t.총비용;
+      total.내부비용 += t.내부비용;
+      total.외주비 += t.외주비;
     });
 
     const monthHeaders = MONTHS.map(
@@ -216,6 +215,11 @@ const CostPage = (function () {
 
   function renderProjectRows(p) {
     const proj = getProject(p.id);
+    // 프로젝트 페이지에서 derive
+    const totals = ProjectData.totalsFor(p.id);
+    proj.cost.총비용 = totals.총비용;
+    proj.cost.내부비용 = totals.내부비용;
+    proj.cost.외주비 = totals.외주비;
     const { profit, rate } = calcLoss(proj);
     const { salesBal, billBal } = calcBalance(proj);
 
@@ -232,7 +236,7 @@ const CostPage = (function () {
         <td class="label-cell">예산</td>
         <td class="value-yellow"><input class="cell-num" type="text" data-action="budget" data-project="${p.id}" data-field="예산" value="${proj.budget.예산 ? formatNumber(proj.budget.예산) : ''}" placeholder="0"/></td>
         <td class="label-pink">총비용</td>
-        <td class="value-pink"><input class="cell-num" type="text" data-action="cost" data-project="${p.id}" data-field="총비용" value="${proj.cost.총비용 ? formatNumber(proj.cost.총비용) : ''}" placeholder="0"/></td>
+        <td class="value-pink" title="프로젝트 페이지에서 자동 계산">${formatNumber(proj.cost.총비용, { zeroAsBlank: true })}</td>
         <td class="label-cell">2025년 누적</td>
         <td class="value-cell"><input class="cell-num" type="text" data-action="cum25" data-project="${p.id}" data-field="매출인식" value="${proj.cum25.매출인식 ? formatNumber(proj.cum25.매출인식) : ''}" placeholder="0"/></td>
         ${monthsRow('매출인식')}
@@ -241,7 +245,7 @@ const CostPage = (function () {
         <td class="label-cell">지원사업</td>
         <td class="value-yellow"><input class="cell-num" type="text" data-action="budget" data-project="${p.id}" data-field="지원사업" value="${proj.budget.지원사업 ? formatNumber(proj.budget.지원사업) : ''}" placeholder="0"/></td>
         <td class="label-pink">내부비용</td>
-        <td class="value-pink"><input class="cell-num" type="text" data-action="cost" data-project="${p.id}" data-field="내부비용" value="${proj.cost.내부비용 ? formatNumber(proj.cost.내부비용) : ''}" placeholder="0"/></td>
+        <td class="value-pink" title="프로젝트 페이지에서 자동 계산">${formatNumber(proj.cost.내부비용, { zeroAsBlank: true })}</td>
         <td class="label-cell">2025년 누적</td>
         <td class="value-cell"><input class="cell-num" type="text" data-action="cum25" data-project="${p.id}" data-field="청구" value="${proj.cum25.청구 ? formatNumber(proj.cum25.청구) : ''}" placeholder="0"/></td>
         ${monthsRow('청구')}
@@ -250,7 +254,7 @@ const CostPage = (function () {
         <td class="label-cell">청구가능비용</td>
         <td class="value-yellow"><input class="cell-num" type="text" data-action="budget" data-project="${p.id}" data-field="청구가능비용" value="${proj.budget.청구가능비용 ? formatNumber(proj.budget.청구가능비용) : ''}" placeholder="0"/></td>
         <td class="label-pink">외주비</td>
-        <td class="value-pink"><input class="cell-num" type="text" data-action="cost" data-project="${p.id}" data-field="외주비" value="${proj.cost.외주비 ? formatNumber(proj.cost.외주비) : ''}" placeholder="0"/></td>
+        <td class="value-pink" title="프로젝트 페이지에서 자동 계산">${formatNumber(proj.cost.외주비, { zeroAsBlank: true })}</td>
         <td class="label-cell">잔액</td>
         <td class="value-cell ${salesBal < 0 ? 'red-text' : ''}">${formatNumber(salesBal, { zeroAsBlank: true })}</td>
         ${MONTHS.map((m) => {

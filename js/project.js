@@ -6,7 +6,6 @@
 // - 투입 인력 행 추가/삭제, 행마다 역할/내부외주/주별 리소스 수
 // - 자동 계산: 리소스합 × 단가 = 비용 (내부 또는 외주에 들어감)
 const ProjectPage = (function () {
-  const STORE_ROWS = 'project.rows.v1';     // { projectId: [ { id, teamId, kind, weeks: { 'YYYY-MM-W': n }, rateOverride? } ] }
   const STORE_FILTER = 'project.filter.v1'; // { projectId, period }
   const WEEKS_PER_MONTH = 4;
   const DEFAULT_PERIOD = { startYear: 2026, startMonth: 4, monthCount: 9 };
@@ -20,7 +19,7 @@ const ProjectPage = (function () {
 
   function init(rootEl) {
     mountEl = rootEl;
-    allRows = Store.read(STORE_ROWS, {});
+    allRows = ProjectData.allRows();
     const sf = Store.read(STORE_FILTER, null);
     if (sf) {
       if (sf.projectId) state.projectId = sf.projectId;
@@ -34,7 +33,7 @@ const ProjectPage = (function () {
   }
 
   function persistRows() {
-    Store.write(STORE_ROWS, allRows);
+    Store.write(ProjectData.STORE_ROWS, allRows);
   }
 
   function rowsForCurrent() {
@@ -62,23 +61,10 @@ const ProjectPage = (function () {
     return `${year}-${month}-${week}`;
   }
 
-  function rowResources(row) {
-    let s = 0;
-    if (!row || !row.weeks) return 0;
-    Object.values(row.weeks).forEach((v) => { s += Number(v) || 0; });
-    return s;
-  }
-
-  function rowRate(row) {
-    if (row && row.rateOverride !== undefined && row.rateOverride !== null && row.rateOverride !== '') {
-      return Number(row.rateOverride) || 0;
-    }
-    return Projects.rateFor(row && row.teamId);
-  }
-
-  function rowCost(row) {
-    return rowResources(row) * rowRate(row);
-  }
+  // ProjectData 헬퍼로 위임 (cost/personnel 페이지와 동일 로직)
+  const rowResources = (r) => ProjectData.rowResources(r);
+  const rowRate      = (r) => ProjectData.rowRate(r);
+  const rowCost      = (r) => ProjectData.rowCost(r);
 
   function addRow() {
     const rows = rowsForCurrent().slice();
@@ -289,9 +275,11 @@ const ProjectPage = (function () {
 
     const resources = rowResources(row);
     const rate = rowRate(row);
-    const cost = resources * rate;
+    const cost = rowCost(row);
     const pct = totalCost > 0 ? (cost / totalCost * 100) : 0;
     const isInternal = row.kind === '내부';
+    const hasManual = row.manualCost !== undefined && row.manualCost !== null && row.manualCost !== '';
+    const manualVal = hasManual ? formatNumber(row.manualCost) : '';
 
     const weekCells = months.map((m, mi) => {
       const nextSameYear = months[mi + 1] && months[mi + 1].year === m.year;
@@ -318,8 +306,8 @@ const ProjectPage = (function () {
         </td>
         <td class="col-resource">${resources || ''}</td>
         <td class="col-rate"><input class="proj-rate-input" type="text" data-action="rate" data-row="${row.id}" value="${row.rateOverride !== undefined && row.rateOverride !== '' && row.rateOverride !== null ? formatNumber(row.rateOverride) : formatNumber(rate)}" /></td>
-        <td class="col-cost">${isInternal ? formatNumber(cost, { zeroAsBlank: true }) : ''}</td>
-        <td class="col-cost">${!isInternal ? formatNumber(cost, { zeroAsBlank: true }) : ''}</td>
+        <td class="col-cost">${isInternal ? `<input class="proj-cost-input" type="text" data-action="manualCost" data-row="${row.id}" value="${hasManual ? manualVal : (cost ? formatNumber(cost) : '')}" placeholder="자동" title="직접 입력 시 자동 계산값을 덮어씁니다"/>` : ''}</td>
+        <td class="col-cost">${!isInternal ? `<input class="proj-cost-input" type="text" data-action="manualCost" data-row="${row.id}" value="${hasManual ? manualVal : (cost ? formatNumber(cost) : '')}" placeholder="자동" title="직접 입력 시 자동 계산값을 덮어씁니다"/>` : ''}</td>
         ${weekCells}
         <td class="col-actions"><button class="btn-row-del" data-action="del" data-row="${row.id}" type="button" title="행 삭제">×</button></td>
       </tr>
@@ -409,6 +397,29 @@ const ProjectPage = (function () {
         const v = input.value.trim();
         const num = v === '' ? null : parseNumber(v);
         updateRow(input.dataset.row, { rateOverride: num });
+        render();
+      });
+    });
+    // 외주비/내부비용 직접 입력 (manualCost) — 비우면 자동 계산값으로 복귀
+    mountEl.querySelectorAll('[data-action="manualCost"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const rowId = input.dataset.row;
+        const rows = rowsForCurrent();
+        const cur = rows.find((r) => r.id === rowId);
+        if (!cur) return;
+        const auto = ProjectData.rowResources(cur) * ProjectData.rowRate(cur);
+        const v = input.value.trim();
+        if (v === '') {
+          updateRow(rowId, { manualCost: null });
+        } else {
+          const num = parseNumber(v);
+          // 자동 계산값과 동일하면 override 해제
+          if (num === auto) {
+            updateRow(rowId, { manualCost: null });
+          } else {
+            updateRow(rowId, { manualCost: num });
+          }
+        }
         render();
       });
     });

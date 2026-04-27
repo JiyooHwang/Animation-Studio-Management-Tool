@@ -114,7 +114,7 @@ const PersonnelPage = (function () {
         <span class="spacer"></span>
         <button class="btn" id="p-add-month" type="button">+ 한 달 추가</button>
         <button class="btn ghost" id="p-remove-month" type="button">- 한 달 제거</button>
-        <button class="btn ghost" id="p-clear" type="button">전체 데이터 초기화</button>
+        <span style="font-size:11px; color:var(--text-dim); margin-left:10px;">※ 인원 값은 [프로젝트] 페이지에서 자동 집계</span>
       </div>
     `;
   }
@@ -155,15 +155,14 @@ const PersonnelPage = (function () {
 
     const rows = TEAMS.map((team) => renderRow(team, months)).join('');
 
-    // 합계 row
+    // 합계 row - 프로젝트 페이지 데이터에서 derive
     const totalCells = months.map((m, mi) => {
       const nextSameYear = months[mi + 1] && months[mi + 1].year === m.year;
       const groupEndCls = nextSameYear ? 'month-end' : 'year-end';
       return [1, 2, 3, 4].map((w, wi) => {
         let sum = 0;
         TEAMS.forEach((t) => {
-          const v = getCellValue(t.id, m.year, m.month, w);
-          if (v !== '' && !isNaN(Number(v))) sum += Number(v);
+          sum += ProjectData.headcountFor(t.id, m.year, m.month, w, filter.project);
         });
         const cls = wi === 3 ? `col-week ${groupEndCls}` : 'col-week';
         return `<td class="${cls}">${sum === 0 ? '0.0' : sum.toFixed(1)}</td>`;
@@ -195,20 +194,20 @@ const PersonnelPage = (function () {
   function renderRow(team, months) {
     const textColor = team.textColor || pickTextColor(team.color);
 
+    // 프로젝트 페이지의 주별 리소스합에서 derive (read-only)
     const cells = months.map((m, mi) => {
       const nextSameYear = months[mi + 1] && months[mi + 1].year === m.year;
       const groupEndCls = nextSameYear ? 'month-end' : 'year-end';
 
       return [1, 2, 3, 4].map((w, wi) => {
-        const v = getCellValue(team.id, m.year, m.month, w);
-        const num = v === '' ? null : Number(v);
+        const num = ProjectData.headcountFor(team.id, m.year, m.month, w, filter.project);
         let cls = 'col-week';
-        if (num === null || num === 0) cls += ' month-zero';
+        if (num === 0) cls += ' month-zero';
         else if (num > 0) cls += ' month-pos';
         else cls += ' month-neg';
         if (wi === 3) cls += ' ' + groupEndCls;
-        const display = num === null ? '' : num.toFixed(1);
-        return `<td class="${cls}"><input type="text" class="cell-input" data-team="${team.id}" data-year="${m.year}" data-month="${m.month}" data-week="${w}" value="${display}" placeholder="0.0"/></td>`;
+        const display = num === 0 ? '0.0' : num.toFixed(1);
+        return `<td class="${cls}" title="프로젝트 페이지에서 자동 집계">${display}</td>`;
       }).join('');
     }).join('');
 
@@ -239,37 +238,10 @@ const PersonnelPage = (function () {
 
     const rmBtn = mountEl.querySelector('#p-remove-month');
     if (rmBtn) rmBtn.addEventListener('click', removeMonthEnd);
-
-    const clr = mountEl.querySelector('#p-clear');
-    if (clr) clr.addEventListener('click', () => {
-      if (!confirm('전체 인원 데이터를 초기화할까요?')) return;
-      headcount = {};
-      Store.write(STORE_HEADCOUNT, headcount);
-      render();
-    });
   }
 
   function bindTable() {
-    mountEl.querySelectorAll('input.cell-input').forEach((input) => {
-      input.addEventListener('change', () => {
-        const teamId = input.dataset.team;
-        const year = Number(input.dataset.year);
-        const month = Number(input.dataset.month);
-        const week = Number(input.dataset.week);
-        const raw = input.value.trim();
-        if (raw === '' || raw === '-') {
-          setCellValue(teamId, year, month, week, '');
-        } else {
-          const num = Number(raw);
-          if (isNaN(num)) {
-            setCellValue(teamId, year, month, week, '');
-          } else {
-            setCellValue(teamId, year, month, week, num);
-          }
-        }
-        render();
-      });
-    });
+    // 셀이 read-only이므로 입력 바인딩 없음 (값은 ProjectData에서 derive)
   }
 
   function pad(n) { return String(n).padStart(2, '0'); }

@@ -88,6 +88,71 @@ const Projects = {
   },
 };
 
+// 프로젝트 페이지 행 데이터 + 집계 helper
+// 비용 페이지(총비용/내부비용/외주비), 인원 페이지(주별 리소스합) 모두 여기서 derive
+const ProjectData = {
+  STORE_ROWS: 'project.rows.v1',
+
+  allRows() {
+    return Store.read(this.STORE_ROWS, {});
+  },
+
+  rows(projectId) {
+    return this.allRows()[projectId] || [];
+  },
+
+  rowResources(row) {
+    let s = 0;
+    if (!row || !row.weeks) return 0;
+    Object.values(row.weeks).forEach((v) => { s += Number(v) || 0; });
+    return s;
+  },
+
+  rowRate(row) {
+    if (row && row.rateOverride !== undefined && row.rateOverride !== null && row.rateOverride !== '') {
+      return Number(row.rateOverride) || 0;
+    }
+    return Projects.rateFor(row && row.teamId);
+  },
+
+  // manualCost가 있으면 우선 사용 (외주비 항목 직접 입력 등)
+  rowCost(row) {
+    if (row && row.manualCost !== undefined && row.manualCost !== null && row.manualCost !== '') {
+      return Number(row.manualCost) || 0;
+    }
+    return this.rowResources(row) * this.rowRate(row);
+  },
+
+  // 비용 페이지에 표시할 프로젝트 별 총합
+  totalsFor(projectId) {
+    const rows = this.rows(projectId);
+    let internal = 0;
+    let external = 0;
+    rows.forEach((r) => {
+      const c = this.rowCost(r);
+      if (r.kind === '내부') internal += c;
+      else if (r.kind === '외주') external += c;
+    });
+    return { 내부비용: internal, 외주비: external, 총비용: internal + external };
+  },
+
+  // 인원 페이지의 (team, year, month, week) 셀 값 - projectFilter('ALL' | projectId) 적용
+  headcountFor(teamId, year, month, week, projectFilter) {
+    const all = this.allRows();
+    const key = `${year}-${month}-${week}`;
+    let s = 0;
+    Object.entries(all).forEach(([pid, rows]) => {
+      if (projectFilter && projectFilter !== 'ALL' && pid !== projectFilter) return;
+      rows.forEach((r) => {
+        if (!r || r.teamId !== teamId) return;
+        const v = (r.weeks || {})[key];
+        if (v !== undefined && v !== null && v !== '') s += Number(v) || 0;
+      });
+    });
+    return s;
+  },
+};
+
 // 연도 옵션
 const YEARS = [2024, 2025, 2026, 2027, 2028];
 
