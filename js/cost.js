@@ -64,8 +64,9 @@ const CostPage = (function () {
   }
 
   function projectsToShow() {
-    if (filter.project === 'ALL') return PROJECTS;
-    return PROJECTS.filter((p) => p.id === filter.project);
+    const all = Projects.list();
+    if (filter.project === 'ALL') return all;
+    return all.filter((p) => p.id === filter.project);
   }
 
   function updateFilter(patch) {
@@ -95,9 +96,9 @@ const CostPage = (function () {
     const yearOpts = YEARS.map(
       (y) => `<option value="${y}" ${y === filter.year ? 'selected' : ''}>${y}</option>`
     ).join('');
-    const projOpts = PROJECT_FILTERS.map(
+    const projOpts = Projects.filterOptions().map(
       (p) =>
-        `<option value="${p.value}" ${p.value === filter.project ? 'selected' : ''}>${p.label}</option>`
+        `<option value="${p.value}" ${p.value === filter.project ? 'selected' : ''}>${escapeHtml(p.label)}</option>`
     ).join('');
 
     return `
@@ -114,10 +115,11 @@ const CostPage = (function () {
 
   function renderTable() {
     const list = projectsToShow();
+    const all = Projects.list();
 
     // 본부 전체 합계
     const total = { 총비용: 0, 내부비용: 0, 외주비: 0 };
-    PROJECTS.forEach((p) => {
+    all.forEach((p) => {
       const pd = data[p.id];
       if (!pd) return;
       total.총비용 += pd.cost.총비용 || 0;
@@ -139,11 +141,12 @@ const CostPage = (function () {
       }).join('');
     };
 
+    const filterLabel = Projects.filterOptions().find((p) => p.value === filter.project)?.label || '';
     return `
       <table class="cost-table">
         <thead>
           <tr>
-            <th colspan="3" rowspan="2" class="header-cell">Project<br/>${PROJECT_FILTERS.find(p => p.value === filter.project)?.label || ''}</th>
+            <th colspan="3" rowspan="2" class="header-cell">Project<br/>${escapeHtml(filterLabel)}</th>
             <th colspan="3" class="header-cell"></th>
             <th colspan="2" class="header-cell">25년 누적</th>
             <th colspan="${MONTHS.length}" class="header-cell">${filter.year}년</th>
@@ -225,7 +228,7 @@ const CostPage = (function () {
     return `
       <tr>
         <td rowspan="3" class="col-class">${escapeHtml(p.category)}</td>
-        <td rowspan="3" class="col-project">${escapeHtml(p.name)}</td>
+        <td rowspan="3" class="col-project"><input class="proj-name-input" type="text" data-action="rename" data-project="${p.id}" value="${escapeHtml(p.name)}" /></td>
         <td class="label-cell">예산</td>
         <td class="value-yellow"><input class="cell-num" type="text" data-action="budget" data-project="${p.id}" data-field="예산" value="${proj.budget.예산 ? formatNumber(proj.budget.예산) : ''}" placeholder="0"/></td>
         <td class="label-pink">총비용</td>
@@ -295,6 +298,14 @@ const CostPage = (function () {
         } else if (action === 'month') {
           setMonthly(projectId, filter.year, Number(input.dataset.month), input.dataset.kind, num);
         }
+        render();
+      });
+    });
+
+    // 프로젝트 이름 편집
+    mountEl.querySelectorAll('input.proj-name-input').forEach((input) => {
+      input.addEventListener('change', () => {
+        Projects.setName(input.dataset.project, input.value);
         render();
       });
     });

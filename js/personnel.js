@@ -93,8 +93,8 @@ const PersonnelPage = (function () {
   }
 
   function renderFilters() {
-    const projOpts = PROJECT_FILTERS.map(
-      (p) => `<option value="${p.value}" ${p.value === filter.project ? 'selected' : ''}>${p.label}</option>`
+    const projOpts = Projects.filterOptions().map(
+      (p) => `<option value="${p.value}" ${p.value === filter.project ? 'selected' : ''}>${escapeHtml(p.label)}</option>`
     ).join('');
 
     const yearOpts = YEARS.map(

@@ -73,10 +73,30 @@
   font-weight: 600;
 }
 .cost-table .col-project {
-  width: 110px;
+  width: 130px;
   text-align: center;
   background: #fff7a8;
   font-weight: 700;
+  padding: 2px;
+}
+
+.proj-name-input {
+  width: 100%;
+  border: 1px dashed transparent;
+  background: transparent;
+  text-align: center;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 2px;
+  font-family: inherit;
+}
+.proj-name-input:hover {
+  border-color: var(--line);
+}
+.proj-name-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: #fff;
 }
 .cost-table .col-month { width: 110px; }
 .cost-table .col-cumulative { width: 130px; }

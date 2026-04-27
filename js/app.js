@@ -3,6 +3,7 @@
   const PAGES = {
     personnel: { mountId: 'personnel-page', module: PersonnelPage, initialized: false },
     cost:      { mountId: 'cost-page',      module: CostPage,      initialized: false },
+    project:   { mountId: 'project-page',   module: ProjectPage,   initialized: false },
   };
 
   const STORE_TAB = 'app.activeTab.v1';
