@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Animation Studio Management Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=JetBrains+Mono:wght@400;500&family=Inter+Tight:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #0e0d0b;
+      --bg-soft: #161412;
+      --panel: #1c1a17;
+      --panel-2: #221f1b;
+      --line: #2a2722;
+      --text: #ece7dd;
+      --text-dim: #8a8278;
+      --text-faint: #54514a;
+      --accent: #ff5b1f;
+      --accent-soft: #ffb38a;
+      --ok: #7fb069;
+      --warn: #e6b450;
+      --bad: #d85454;
+      --display: 'Fraunces', 'Times New Roman', serif;
+      --body: 'Inter Tight', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--body);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.9'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: 100vh;
+    }
+
+    /* ------- SIDEBAR ------- */
+    aside {
+      background: var(--bg-soft);
+      border-right: 1px solid var(--line);
+      padding: 28px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .brand .mark {
+      font-family: var(--display);
+      font-style: italic;
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+    .brand .name {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    nav h4 {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      margin-bottom: 10px;
+      padding-left: 4px;
+    }
+    nav ul { list-style: none; margin-bottom: 24px; }
+    nav li a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      color: var(--text-dim);
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 13px;
+      transition: all 0.15s ease;
+    }
+    nav li a:hover { color: var(--text); background: var(--panel); }
+    nav li.active a {
+      color: var(--text);
+      background: var(--panel-2);
+      box-shadow: inset 2px 0 0 var(--accent);
+    }
+    nav li a .dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--text-faint);
+    }
+    nav li.active a .dot { background: var(--accent); }
+
+    .user-card {
+      margin-top: auto;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #b8390f);
+      display: grid; place-items: center;
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: 13px;
+      color: var(--bg);
+    }
+    .user-card .meta { line-height: 1.2; }
+    .user-card .meta strong { font-size: 12px; }
+    .user-card .meta span { font-size: 10px; color: var(--text-dim); }
+
+    /* ------- MAIN ------- */
+    main { padding: 32px 40px 60px; overflow-x: hidden; }
+
+    header.topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 32px;
+    }
+    .topbar .crumbs {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-faint);
+      letter-spacing: 0.1em;
+      margin-bottom: 6px;
+    }
+    .topbar .crumbs span { color: var(--text-dim); }
+    .topbar h1 {
+      font-family: var(--display);
+      font-weight: 400;
+      font-size: 40px;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .topbar h1 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+    .topbar .actions { display: flex; gap: 8px; }
+    button.btn {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-family: var(--body);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    button.btn:hover { border-color: var(--text-dim); }
+    button.btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg);
+      font-weight: 600;
+    }
+    button.btn.primary:hover { background: #ff7440; }
+
+    /* ------- STATS ------- */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .stat {
+      padding: 20px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat .label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .stat .value {
+      font-family: var(--display);
+      font-size: 36px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .stat .delta {
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .stat .delta strong { color: var(--ok); }
+    .stat.warn .delta strong { color: var(--warn); }
+
+    /* ------- GRID PANELS ------- */
+    .grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+    }
+    section.panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 24px;
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-head h2 {
+      font-family: var(--display);
+      font-weight: 400;
+      font-size: 22px;
+      letter-spacing: -0.01em;
+    }
+    .panel-head .hint {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-faint);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* shots table */
+    table.shots {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    table.shots th {
+      text-align: left;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    table.shots td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    table.shots tr:last-child td { border-bottom: none; }
+    table.shots tr:hover td { background: var(--panel-2); }
+    .shot-id {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent-soft);
+    }
+    .progress {
+      display: inline-block;
+      width: 80px; height: 4px;
+      background: var(--line);
+      border-radius: 2px;
+      overflow: hidden;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    .progress > i {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .badge.review { background: rgba(230, 180, 80, 0.15); color: var(--warn); }
+    .badge.wip { background: rgba(255, 91, 31, 0.15); color: var(--accent); }
+    .badge.done { background: rgba(127, 176, 105, 0.15); color: var(--ok); }
+    .badge.blocked { background: rgba(216, 84, 84, 0.15); color: var(--bad); }
+
+    /* schedule sidebar */
+    .schedule-item {
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .schedule-item:last-child { border-bottom: none; }
+    .schedule-item .date {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      min-width: 50px;
+      padding-top: 2px;
+    }
+    .schedule-item .body strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+    .schedule-item .body span {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    footer.foot {
+      margin-top: 48px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-faint);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 960px) {
+      .app { grid-template-columns: 1fr; }
+      aside { display: none; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .grid { grid-template-columns: 1fr; }
+      main { padding: 24px; }
+      .topbar h1 { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- SIDEBAR -->
+    <aside>
+      <div class="brand">
+        <span class="mark">A/S</span>
+        <span class="name">Studio&nbsp;Tool</span>
+      </div>
+
+      <nav>
+        <h4>Production</h4>
+        <ul>
+          <li class="active"><a href="#"><span class="dot"></span>Dashboard</a></li>
+          <li><a href="#"><span class="dot"></span>Projects</a></li>
+          <li><a href="#"><span class="dot"></span>Shots</a></li>
+          <li><a href="#"><span class="dot"></span>Assets</a></li>
+          <li><a href="#"><span class="dot"></span>Schedule</a></li>
+        </ul>
+
+        <h4>Team</h4>
+        <ul>
+          <li><a href="#"><span class="dot"></span>Artists</a></li>
+          <li><a href="#"><span class="dot"></span>Reviews</a></li>
+          <li><a href="#"><span class="dot"></span>Settings</a></li>
+        </ul>
+      </nav>
+
+      <div class="user-card">
+        <div class="avatar">JH</div>
+        <div class="meta">
+          <strong>Jiyoo Hwang</strong><br>
+          <span>Producer</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main>
+      <header class="topbar">
+        <div>
+          <div class="crumbs">PRODUCTION <span>/</span> DASHBOARD</div>
+          <h1>Studio <em>overview</em></h1>
+        </div>
+        <div class="actions">
+          <button class="btn">Filter</button>
+          <button class="btn">Export</button>
+          <button class="btn primary">+ New Shot</button>
+        </div>
+      </header>
+
+      <!-- STATS -->
+      <div class="stats">
+        <div class="stat">
+          <div class="label">Active Shots</div>
+          <div class="value">128</div>
+          <div class="delta"><strong>+12</strong> this week</div>
+        </div>
+        <div class="stat">
+          <div class="label">In Review</div>
+          <div class="value">24</div>
+          <div class="delta"><strong>8</strong> awaiting client</div>
+        </div>
+        <div class="stat warn">
+          <div class="label">Blocked</div>
+          <div class="value">5</div>
+          <div class="delta"><strong>2 overdue</strong></div>
+        </div>
+        <div class="stat">
+          <div class="label">On Schedule</div>
+          <div class="value">87%</div>
+          <div class="delta"><strong>+3%</strong> vs last sprint</div>
+        </div>
+      </div>
+
+      <!-- GRID -->
+      <div class="grid">
+        <!-- Shots table -->
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Recent shot activity</h2>
+            <span class="hint">Last 24h</span>
+          </div>
+          <table class="shots">
+            <thead>
+              <tr>
+                <th>Shot</th>
+                <th>Sequence</th>
+                <th>Artist</th>
+                <th>Progress</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="shot-id">SH_010_0030</td>
+                <td>Opening</td>
+                <td>M. Park</td>
+                <td><span class="progress"><i style="width:90%"></i></span>90%</td>
+                <td><span class="badge review">Review</span></td>
+              </tr>
+              <tr>
+                <td class="shot-id">SH_020_0140</td>
+                <td>Chase</td>
+                <td>S. Lee</td>
+                <td><span class="progress"><i style="width:55%"></i></span>55%</td>
+                <td><span class="badge wip">WIP</span></td>
+              </tr>
+              <tr>
+                <td class="shot-id">SH_030_0080</td>
+                <td>Reveal</td>
+                <td>K. Cho</td>
+                <td><span class="progress"><i style="width:100%"></i></span>100%</td>
+                <td><span class="badge done">Done</span></td>
+              </tr>
+              <tr>
+                <td class="shot-id">SH_040_0010</td>
+                <td>Climax</td>
+                <td>J. Hwang</td>
+                <td><span class="progress"><i style="width:25%"></i></span>25%</td>
+                <td><span class="badge blocked">Blocked</span></td>
+              </tr>
+              <tr>
+                <td class="shot-id">SH_050_0200</td>
+                <td>Ending</td>
+                <td>R. Kim</td>
+                <td><span class="progress"><i style="width:70%"></i></span>70%</td>
+                <td><span class="badge wip">WIP</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- Schedule -->
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Upcoming</h2>
+            <span class="hint">This week</span>
+          </div>
+          <div class="schedule-item">
+            <div class="date">APR 28</div>
+            <div class="body">
+              <strong>Director review — Seq. 020</strong>
+              <span>10:00 · Screening Room A</span>
+            </div>
+          </div>
+          <div class="schedule-item">
+            <div class="date">APR 29</div>
+            <div class="body">
+              <strong>Client preview cut</strong>
+              <span>14:00 · Remote</span>
+            </div>
+          </div>
+          <div class="schedule-item">
+            <div class="date">MAY 02</div>
+            <div class="body">
+              <strong>Animation sprint deadline</strong>
+              <span>EOD · Sequence 040</span>
+            </div>
+          </div>
+          <div class="schedule-item">
+            <div class="date">MAY 05</div>
+            <div class="body">
+              <strong>Render farm maintenance</strong>
+              <span>22:00 — 02:00</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="foot">
+        <span>Animation Studio Management Tool · v0.1.0</span>
+        <span>© 2026 · Built with care</span>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>
