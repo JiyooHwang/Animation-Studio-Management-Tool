@@ -4,6 +4,7 @@
     personnel: { mountId: 'personnel-page', module: PersonnelPage },
     cost:      { mountId: 'cost-page',      module: CostPage },
     project:   { mountId: 'project-page',   module: ProjectPage },
+    roster:    { mountId: 'roster-page',    module: RosterPage },
   };
 
   const STORE_TAB = 'app.activeTab.v1';
