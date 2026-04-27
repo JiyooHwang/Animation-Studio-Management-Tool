@@ -2,7 +2,7 @@
 // 팀 정의 - 인원 페이지 (image 1 기준)
 // premium: true → 주당단가가 PD/Sup/Dr/IPB/IPS rate 적용
 const TEAMS = [
-  { id: 'exec',         name: '',                          role: '부사장/본부장',          color: '#dcdcdc' },
+  { id: 'exec',         name: '',                          role: '부사장/본부장',          color: '#dcdcdc', exec: true },
   { id: 'global',       name: '',                          role: '글로벌 사업 개발실',     color: '#ffffff' },
   { id: 'ipBiz',        name: '',                          role: 'IP사업실',               color: '#ffffff', premium: true },
   { id: 'ipStrategy',   name: '',                          role: 'IP전략실',               color: '#ffffff', premium: true },
@@ -43,7 +43,7 @@ const DEFAULT_PROJECTS = [
 const Projects = {
   STORE_NAMES: 'projects.names.v1',
   STORE_RATES: 'projects.rates.v1',
-  DEFAULT_RATES: { premium: 2520000, standard: 2030000 },
+  DEFAULT_RATES: { exec: 3000000, premium: 2520000, standard: 2030000 },
 
   getName(id) {
     const names = Store.read(this.STORE_NAMES, {});
@@ -82,7 +82,9 @@ const Projects = {
   rateFor(teamId) {
     const t = getTeam(teamId);
     const rates = this.getRates();
-    return t && t.premium ? rates.premium : rates.standard;
+    if (t && t.exec) return rates.exec;
+    if (t && t.premium) return rates.premium;
+    return rates.standard;
   },
 };
 

@@ -81,7 +81,7 @@ const CostPage = (function () {
     mountEl.innerHTML = `
       <div class="topbar">
         <h1>프로젝트 비용 관리</h1>
-        <div class="summary">프로젝트 <strong>${PROJECTS.length}</strong>개</div>
+        <div class="summary">프로젝트 <strong>${Projects.list().length}</strong>개</div>
       </div>
       ${renderFilters()}
       <div class="cost-wrap">
@@ -134,7 +134,7 @@ const CostPage = (function () {
     const monthlyTotalsByKind = (kind) => {
       return MONTHS.map((m) => {
         let s = 0;
-        PROJECTS.forEach((p) => {
+        all.forEach((p) => {
           s += getMonthly(p.id, filter.year, m, kind);
         });
         return `<td class="value-cell">${formatNumber(s, { zeroAsBlank: true })}</td>`;
@@ -161,14 +161,14 @@ const CostPage = (function () {
           </tr>
         </thead>
         <tbody>
-          ${renderHQRow(total)}
+          ${renderHQRow(total, all)}
           ${list.map((p) => renderProjectRows(p)).join('')}
         </tbody>
       </table>
     `;
   }
 
-  function renderHQRow(total) {
+  function renderHQRow(total, all) {
     return `
       <tr>
         <td rowspan="3" class="col-class">본부 전체</td>
@@ -180,7 +180,7 @@ const CostPage = (function () {
         <td class="label-cell" colspan="2" style="text-align:center;">매출인식</td>
         ${MONTHS.map((m) => {
           let s = 0;
-          PROJECTS.forEach((p) => { s += getMonthly(p.id, filter.year, m, '매출인식'); });
+          all.forEach((p) => { s += getMonthly(p.id, filter.year, m, '매출인식'); });
           return `<td class="value-cell">${formatNumber(s, { zeroAsBlank: true })}</td>`;
         }).join('')}
       </tr>
@@ -192,7 +192,7 @@ const CostPage = (function () {
         <td class="label-cell" colspan="2" style="text-align:center;">청구</td>
         ${MONTHS.map((m) => {
           let s = 0;
-          PROJECTS.forEach((p) => { s += getMonthly(p.id, filter.year, m, '청구'); });
+          all.forEach((p) => { s += getMonthly(p.id, filter.year, m, '청구'); });
           return `<td class="value-cell">${formatNumber(s, { zeroAsBlank: true })}</td>`;
         }).join('')}
       </tr>
@@ -204,7 +204,7 @@ const CostPage = (function () {
         <td class="label-cell" colspan="2" style="text-align:center;">잔액</td>
         ${MONTHS.map((m) => {
           let recog = 0, bill = 0;
-          PROJECTS.forEach((p) => {
+          all.forEach((p) => {
             recog += getMonthly(p.id, filter.year, m, '매출인식');
             bill += getMonthly(p.id, filter.year, m, '청구');
           });

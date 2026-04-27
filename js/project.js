@@ -156,6 +156,8 @@ const ProjectPage = (function () {
           </div>
         </div>
         <div class="rate-config">
+          <label>주당단가 (본부장)</label>
+          <input id="rate-exec" type="text" value="${formatNumber(rates.exec)}" />
           <label>주당단가 (PD,SUP,Dr,IPB)</label>
           <input id="rate-premium" type="text" value="${formatNumber(rates.premium)}" />
           <label>주당단가 (그 외 부서)</label>
@@ -338,8 +340,15 @@ const ProjectPage = (function () {
       render();
     });
 
+    const rateExec = mountEl.querySelector('#rate-exec');
     const ratePremium = mountEl.querySelector('#rate-premium');
     const rateStandard = mountEl.querySelector('#rate-standard');
+    if (rateExec) rateExec.addEventListener('change', () => {
+      const r = Projects.getRates();
+      r.exec = parseNumber(rateExec.value);
+      Projects.setRates(r);
+      render();
+    });
     if (ratePremium) ratePremium.addEventListener('change', () => {
       const r = Projects.getRates();
       r.premium = parseNumber(ratePremium.value);
