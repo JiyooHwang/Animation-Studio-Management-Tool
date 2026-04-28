@@ -113,6 +113,27 @@ const RosterPage = (function () {
     const months = periodMonths();
     const last = months[months.length - 1];
 
+    // 스크롤 위치 보존 - innerHTML 교체로 인한 스크롤 리셋 방지
+    const oldWrap = mountEl.querySelector('.roster-wrap');
+    const savedScroll = {
+      wrapLeft: oldWrap ? oldWrap.scrollLeft : 0,
+      wrapTop: oldWrap ? oldWrap.scrollTop : 0,
+      winX: window.scrollX,
+      winY: window.scrollY,
+    };
+    // 현재 포커스된 입력의 식별자 보존 (재렌더 후 같은 위치에 포커스 복원 시도)
+    const ae = document.activeElement;
+    const focusInfo = (ae && mountEl.contains(ae) && ae.dataset && ae.dataset.action)
+      ? {
+          action: ae.dataset.action,
+          id: ae.dataset.id || '',
+          year: ae.dataset.year || '',
+          month: ae.dataset.month || '',
+          selStart: ae.selectionStart,
+          selEnd: ae.selectionEnd,
+        }
+      : null;
+
     mountEl.innerHTML = `
       <div class="topbar">
         <h1>본부 인원 (직원 명단)</h1>
@@ -127,6 +148,28 @@ const RosterPage = (function () {
       </div>
     `;
     bindEvents();
+
+    // 스크롤 위치 복원
+    const newWrap = mountEl.querySelector('.roster-wrap');
+    if (newWrap) {
+      newWrap.scrollLeft = savedScroll.wrapLeft;
+      newWrap.scrollTop = savedScroll.wrapTop;
+    }
+    window.scrollTo(savedScroll.winX, savedScroll.winY);
+
+    // 포커스 복원 (가능할 때만)
+    if (focusInfo) {
+      const sel = `[data-action="${focusInfo.action}"][data-id="${focusInfo.id}"]`
+        + (focusInfo.year ? `[data-year="${focusInfo.year}"]` : '')
+        + (focusInfo.month ? `[data-month="${focusInfo.month}"]` : '');
+      const target = mountEl.querySelector(sel);
+      if (target && typeof target.focus === 'function') {
+        target.focus();
+        if (target.setSelectionRange && focusInfo.selStart != null) {
+          try { target.setSelectionRange(focusInfo.selStart, focusInfo.selEnd); } catch (_) { /* noop */ }
+        }
+      }
+    }
   }
 
   function renderToolbar() {
