@@ -199,12 +199,15 @@ const SettlementPage = (function () {
           </tr>
         `;
       });
-      // "+ 입금처 추가" row
+      // "+ 입금처 추가" row - 버튼은 구분 컬럼에만 배치
+      const emptyMonthCells = MONTHS.map(() => '<td class="num"></td>').join('');
       html += `
         <tr class="${blockCls} row-block-end row-deposit-add">
-          <td class="col-kind kind-deposit-add" colspan="${MONTHS.length + 2}">
+          <td class="col-kind kind-deposit-add">
             <button class="btn-dep-add" type="button" data-action="dep-add" data-project="${projectId}">+ 입금처 추가</button>
           </td>
+          ${emptyMonthCells}
+          <td class="num col-total"></td>
         </tr>
       `;
     }

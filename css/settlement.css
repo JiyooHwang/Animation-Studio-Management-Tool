@@ -171,21 +171,26 @@
   background: var(--danger);
   border-color: var(--danger);
 }
-.settlement-table tr.row-deposit-add td {
+.settlement-table tr.row-deposit-add td.kind-deposit-add {
   background: #ecfdf5;
   text-align: center;
-  padding: 6px;
+  padding: 5px 8px;
+}
+.settlement-table tr.row-deposit-add td.num,
+.settlement-table tr.row-deposit-add td.col-total {
+  background: #ecfdf5;
 }
 .settlement-table .btn-dep-add {
   border: 1px dashed #059669;
   background: #fff;
   color: #065f46;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
-  padding: 4px 14px;
+  padding: 3px 10px;
   border-radius: 4px;
   cursor: pointer;
+  white-space: nowrap;
 }
 .settlement-table .btn-dep-add:hover {
   background: #059669;
