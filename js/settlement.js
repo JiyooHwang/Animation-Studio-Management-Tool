@@ -184,8 +184,13 @@ const SettlementPage = (function () {
         const totalDep = sumArr(monthlyArr);
         const monthCells = monthlyArr.map((v, mi) => {
           const month = MONTHS[mi];
-          const display = v ? formatNumber(v) : '';
-          return `<td class="num"><input class="dep-month-input" type="text" data-action="dep-month" data-project="${projectId}" data-id="${d.id}" data-year="${filter.year}" data-month="${month}" value="${display}" placeholder=""/></td>`;
+          const k = `${filter.year}-${month}`;
+          const amountDisplay = v ? formatNumber(v) : '';
+          const dateValue = (d.monthlyDate || {})[k] || '';
+          return `<td class="num dep-month-cell">
+            <input class="dep-month-date" type="date" data-action="dep-month-date" data-project="${projectId}" data-id="${d.id}" data-year="${filter.year}" data-month="${month}" value="${escapeHtml(dateValue)}" title="입금일" />
+            <input class="dep-month-input" type="text" data-action="dep-month" data-project="${projectId}" data-id="${d.id}" data-year="${filter.year}" data-month="${month}" value="${amountDisplay}" placeholder=""/>
+          </td>`;
         }).join('');
         html += `
           <tr class="${blockCls} row-deposit">
@@ -193,7 +198,6 @@ const SettlementPage = (function () {
               <div class="dep-row-wrap">
                 <span class="dep-prefix">입금:</span>
                 <input class="dep-payer-input" type="text" data-action="dep-payer" data-project="${projectId}" data-id="${d.id}" value="${escapeHtml(d.payer || '')}" placeholder="입금처" />
-                <input class="dep-date-input" type="date" data-action="dep-date" data-project="${projectId}" data-id="${d.id}" value="${escapeHtml(d.paidDate || '')}" title="입금일" />
                 <button class="btn-dep-del" type="button" data-action="dep-del" data-project="${projectId}" data-id="${d.id}" title="입금처 삭제">×</button>
               </div>
             </td>
@@ -263,10 +267,16 @@ const SettlementPage = (function () {
       });
     });
 
-    // 입금일 편집 (재렌더 불필요)
-    mountEl.querySelectorAll('[data-action="dep-date"]').forEach((input) => {
+    // 월별 입금일 편집 (재렌더 불필요)
+    mountEl.querySelectorAll('[data-action="dep-month-date"]').forEach((input) => {
       input.addEventListener('change', () => {
-        SettlementData.updateDepositDate(input.dataset.project, input.dataset.id, input.value);
+        SettlementData.setDepositDateForMonth(
+          input.dataset.project,
+          input.dataset.id,
+          Number(input.dataset.year),
+          Number(input.dataset.month),
+          input.value
+        );
       });
     });
 
@@ -313,13 +323,17 @@ const SettlementPage = (function () {
         const total = sumArr(monthly);
         lines.push([csvCell(p.name), kind, ...monthly, total].join(','));
       });
-      // 프로젝트의 입금처별 행
+      // 프로젝트의 입금처별 행 (입금액 + 입금일을 두 행으로 출력)
       const deposits = SettlementData.depositsFor(p.id);
       deposits.forEach((d) => {
-        const monthly = MONTHS.map((m) => Math.round(Number((d.monthly || {})[`${filter.year}-${m}`]) || 0));
-        const datePart = d.paidDate ? ` / ${d.paidDate}` : '';
-        const label = '입금: ' + (d.payer || '(미지정)') + datePart;
-        lines.push([csvCell(p.name), csvCell(label), ...monthly, sumArr(monthly)].join(','));
+        const amountRow = MONTHS.map((m) => Math.round(Number((d.monthly || {})[`${filter.year}-${m}`]) || 0));
+        const dateRow = MONTHS.map((m) => (d.monthlyDate || {})[`${filter.year}-${m}`] || '');
+        const label = '입금: ' + (d.payer || '(미지정)');
+        lines.push([csvCell(p.name), csvCell(label + ' (입금액)'), ...amountRow, sumArr(amountRow)].join(','));
+        // 모든 날짜가 비어있으면 날짜 행 생략
+        if (dateRow.some((x) => x)) {
+          lines.push([csvCell(p.name), csvCell(label + ' (입금일)'), ...dateRow.map(csvCell), ''].join(','));
+        }
       });
     });
 

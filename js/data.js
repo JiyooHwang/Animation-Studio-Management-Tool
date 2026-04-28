@@ -480,6 +480,21 @@ const SettlementData = {
     this.saveDeposits(all);
   },
 
+  // 월별 개별 입금일 설정 (한 deposit row의 각 달이 자체 날짜를 가질 수 있음)
+  setDepositDateForMonth(projectId, depId, year, month, date) {
+    const all = this.allDeposits();
+    const list = all[projectId];
+    if (!Array.isArray(list)) return;
+    const item = list.find((d) => d.id === depId);
+    if (!item) return;
+    const dates = Object.assign({}, item.monthlyDate || {});
+    const k = `${year}-${month}`;
+    if (!date) delete dates[k];
+    else dates[k] = date;
+    item.monthlyDate = dates;
+    this.saveDeposits(all);
+  },
+
   // 특정 프로젝트의 (year, month) 입금 합계 (모든 입금처 합)
   depositSumForProjectMonth(projectId, year, month) {
     const k = `${year}-${month}`;

@@ -117,8 +117,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-width: 280px;
-  flex-wrap: wrap;
+  min-width: 200px;
 }
 .settlement-table .dep-prefix {
   font-weight: 700;
@@ -176,9 +175,37 @@
 }
 .settlement-table .dep-date-input:invalid,
 .settlement-table .dep-date-input:placeholder-shown { color: #9ca3af; }
-.settlement-table .dep-month-input {
+.settlement-table .dep-month-cell {
+  padding: 2px 3px;
+  vertical-align: top;
+  min-width: 110px;
+}
+.settlement-table .dep-month-date {
+  display: block;
   width: 100%;
-  border: none;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: inherit;
+  font-size: 10px;
+  color: var(--text-dim);
+  padding: 1px 3px;
+  border-radius: 2px;
+  margin-bottom: 2px;
+}
+.settlement-table .dep-month-date:hover {
+  border-color: #6ee7b7;
+  background: rgba(255, 255, 255, 0.6);
+}
+.settlement-table .dep-month-date:focus {
+  outline: none;
+  border-color: #059669;
+  background: #fff;
+  color: var(--text);
+}
+.settlement-table .dep-month-input {
+  display: block;
+  width: 100%;
+  border: 1px solid transparent;
   background: transparent;
   text-align: right;
   font-family: inherit;
@@ -186,9 +213,12 @@
   font-variant-numeric: tabular-nums;
   padding: 2px 4px;
   color: inherit;
+  border-radius: 2px;
 }
+.settlement-table .dep-month-input:hover { border-color: #6ee7b7; }
 .settlement-table .dep-month-input:focus {
-  outline: 1.5px solid #059669;
+  outline: none;
+  border-color: #059669;
   background: #fff;
 }
 .settlement-table .btn-dep-del {
