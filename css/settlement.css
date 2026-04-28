@@ -115,6 +115,7 @@
 .dep-row-wrap {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   min-width: 200px;
 }
@@ -126,7 +127,6 @@
 }
 /* 입금처 input - 평소엔 저장된 라벨처럼 보이고, 호버/포커스 시에만 편집 가능 */
 .settlement-table .dep-payer-input {
-  flex: 1;
   border: 1px solid transparent;
   background: transparent;
   padding: 3px 6px;
@@ -135,7 +135,8 @@
   font-weight: 700;
   color: #065f46;
   border-radius: 3px;
-  min-width: 80px;
+  width: 110px;
+  text-align: center;
 }
 .settlement-table .dep-payer-input::placeholder {
   font-weight: 400;
