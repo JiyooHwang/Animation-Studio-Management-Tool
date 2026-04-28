@@ -1,0 +1,145 @@
+/* ===== 결산 페이지 ===== */
+
+.settlement-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.settlement-toolbar label {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.settlement-toolbar select {
+  border: 1px solid var(--line);
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: #fff;
+  min-width: 100px;
+}
+
+.settlement-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  background: #fffbeb;
+  border: 1px dashed #f59e0b;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.settlement-wrap {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: auto;
+  max-height: calc(100vh - 240px);
+}
+
+.settlement-table {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: max-content;
+  min-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.settlement-table th,
+.settlement-table td {
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.settlement-table thead th {
+  background: var(--row-header);
+  color: var(--row-header-text);
+  font-weight: 700;
+  text-align: center;
+  font-size: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.settlement-table thead tr:nth-child(2) th { top: 30px; z-index: 2; }
+.settlement-table thead .col-period { background: #fde68a; font-size: 13px; }
+.settlement-table thead .col-total {
+  background: #fef3c7;
+  width: 130px;
+  border-left: 3px solid var(--text);
+}
+.settlement-table thead .col-project { width: 160px; }
+.settlement-table thead .col-kind { width: 90px; }
+
+.settlement-table .col-project {
+  font-weight: 700;
+  text-align: center;
+  background: #fff7a8;
+  font-size: 13px;
+}
+.settlement-table .col-project.block-hq {
+  background: #fef3c7;
+  color: #92400e;
+  border-left: 4px solid #f59e0b;
+}
+.settlement-table .col-project.block-project {
+  border-left: 4px solid #d97706;
+}
+
+.settlement-table .col-kind {
+  text-align: center;
+  font-weight: 600;
+  background: #fafafa;
+}
+.settlement-table .kind-internal {
+  background: #fff7a8;
+  color: #92400e;
+}
+.settlement-table .kind-external {
+  background: #fce4ec;
+  color: #9f1239;
+}
+.settlement-table .kind-billing {
+  background: #ddd6fe;
+  color: #5b21b6;
+}
+
+.settlement-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.settlement-table td.col-total {
+  background: #fef3c7;
+  font-weight: 700;
+  border-left: 3px solid var(--text);
+}
+
+/* 프로젝트 단위 시각 구분 */
+.settlement-table tr.row-block-start td {
+  border-top: 3px solid #555;
+}
+.settlement-table tr.row-block-end td {
+  border-bottom: 3px solid #555;
+}
+.settlement-table tr.block-hq td { background: #fffbeb; }
+.settlement-table tr.block-hq td.kind-internal { background: #fff7a8; }
+.settlement-table tr.block-hq td.kind-external { background: #fce4ec; }
+.settlement-table tr.block-hq td.kind-billing { background: #ddd6fe; }
+.settlement-table tr.block-hq td.num { font-weight: 700; }
+
+.settlement-table tr.block-project:hover td { background: #fafafa; }
+.settlement-table tr.block-project:hover td.col-project { background: #fef3c7; }
+
+/* 인쇄용 */
+@media print {
+  body * { visibility: hidden; }
+  #settlement-page, #settlement-page * { visibility: visible; }
+  #settlement-page { position: absolute; left: 0; top: 0; width: 100%; }
+  .settlement-toolbar, .settlement-hint, .topbar .summary { display: none; }
+  .settlement-wrap { max-height: none; overflow: visible; border: none; }
+  .settlement-table { font-size: 10px; }
+}

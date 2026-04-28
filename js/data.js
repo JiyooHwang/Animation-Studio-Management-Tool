@@ -375,6 +375,37 @@ const ProjectData = {
   },
 };
 
+// 비용 페이지의 사용자 입력값(월별 매출인식/청구) 조회 헬퍼
+// - 결산 페이지에서 청구금액을 derive하기 위함
+const CostData = {
+  STORE_KEY: 'cost.v1',
+
+  raw() {
+    return Store.read(this.STORE_KEY, {}) || {};
+  },
+
+  projectData(projectId) {
+    const all = this.raw();
+    return all[projectId] || null;
+  },
+
+  // kind: '매출인식' | '청구'
+  monthlyValue(projectId, year, month, kind) {
+    const proj = this.projectData(projectId);
+    if (!proj) return 0;
+    const v = Store.getIn(proj, `monthly.${year}.${month}.${kind}`, 0);
+    return Number(v) || 0;
+  },
+
+  monthlyBilling(projectId, year, month) {
+    return this.monthlyValue(projectId, year, month, '청구');
+  },
+
+  monthlyRecognition(projectId, year, month) {
+    return this.monthlyValue(projectId, year, month, '매출인식');
+  },
+};
+
 // 본부인원(roster) 헬퍼 - 인원 페이지가 팀별 가용 인원을 derive
 const RosterData = {
   STORE_LIST: 'roster.list.v1',

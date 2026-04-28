@@ -1,10 +1,11 @@
 // 메인 앱 - 탭 라우팅
 (function () {
   const PAGES = {
-    personnel: { mountId: 'personnel-page', module: PersonnelPage },
-    cost:      { mountId: 'cost-page',      module: CostPage },
-    project:   { mountId: 'project-page',   module: ProjectPage },
-    roster:    { mountId: 'roster-page',    module: RosterPage },
+    personnel:  { mountId: 'personnel-page',  module: PersonnelPage },
+    cost:       { mountId: 'cost-page',       module: CostPage },
+    project:    { mountId: 'project-page',    module: ProjectPage },
+    roster:     { mountId: 'roster-page',     module: RosterPage },
+    settlement: { mountId: 'settlement-page', module: SettlementPage },
   };
 
   const STORE_TAB = 'app.activeTab.v1';
