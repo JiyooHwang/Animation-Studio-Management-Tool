@@ -76,6 +76,7 @@ const ProjectPage = (function () {
         <h1>프로젝트 상세</h1>
         <div class="summary">기간 <strong>${state.period.startYear}.${pad(state.period.startMonth)} ~ ${last.year}.${pad(last.month)}</strong> (${state.period.monthCount}개월)</div>
       </div>
+      ${renderProjectChips()}
       ${renderProjectMeta(projectName)}
       ${renderToolbar()}
       <div class="project-wrap">
@@ -84,6 +85,18 @@ const ProjectPage = (function () {
     `;
 
     bindEvents();
+  }
+
+  function renderProjectChips() {
+    const list = Projects.list();
+    if (!list.length) {
+      return `<div class="proj-chips empty">등록된 프로젝트가 없습니다. 우측 "+ 프로젝트 추가" 버튼으로 시작하세요.</div>`;
+    }
+    const chips = list.map((p) => {
+      const cls = p.id === state.projectId ? 'proj-chip active' : 'proj-chip';
+      return `<button type="button" class="${cls}" data-action="chip" data-id="${p.id}" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</button>`;
+    }).join('');
+    return `<div class="proj-chips"><span class="proj-chips-label">프로젝트</span>${chips}</div>`;
   }
 
   function renderProjectMeta(projectName) {
@@ -335,6 +348,15 @@ const ProjectPage = (function () {
       state.projectId = e.target.value;
       persistFilter();
       render();
+    });
+
+    // 프로젝트 chip 클릭 → 해당 프로젝트로 전환
+    mountEl.querySelectorAll('[data-action="chip"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.projectId = btn.dataset.id;
+        persistFilter();
+        render();
+      });
     });
 
     // 프로젝트 추가 (현재 프로젝트로 즉시 전환)

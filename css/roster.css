@@ -68,9 +68,23 @@
 .roster-table .col-team      { width: 160px; }
 .roster-table .col-month     { width: 44px; text-align: center; }
 .roster-table .col-note      { width: 180px; }
-.roster-table .col-actions   { width: 32px; text-align: center; background: #fafafa; }
+.roster-table .col-actions   { width: 36px; text-align: center; background: #fafafa; }
+
+/* 좌측 sticky 삭제 컬럼 - 가로 스크롤해도 항상 보임 */
+.roster-table .col-actions-left {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #fafafa;
+  border-right: 2px solid var(--line);
+}
+.roster-table thead .col-actions-left {
+  z-index: 4;
+  background: #f0f0f0;
+}
 
 .roster-table tbody tr:hover td { background: #fafafa; }
+.roster-table tbody tr:hover .col-actions-left { background: #fde2e2; }
 .roster-table tbody tr:hover .col-actions { background: #f0f0f0; }
 
 /* 인라인 입력 */
@@ -120,15 +134,21 @@
 
 /* 행 삭제 */
 .btn-roster-del {
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
-  color: var(--text-faint);
-  font-size: 14px;
+  color: var(--text-dim);
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 2px 8px;
   line-height: 1;
+  border-radius: 3px;
 }
-.btn-roster-del:hover { color: var(--danger); }
+.btn-roster-del:hover {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
+}
 
 /* 직책별 행 강조 (실장/팀장/파트장/부사장 등) */
 .roster-table tr.row-manager td { background: #f5f5f5; }

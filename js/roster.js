@@ -193,6 +193,7 @@ const RosterPage = (function () {
       <table class="roster-table">
         <thead>
           <tr>
+            <th rowspan="3" class="col-actions col-actions-left"></th>
             <th rowspan="3" class="col-empType">고용구분</th>
             <th rowspan="3" class="col-name">성명</th>
             <th rowspan="3" class="col-position">직책</th>
@@ -200,7 +201,6 @@ const RosterPage = (function () {
             <th rowspan="3" class="col-team">팀</th>
             ${yearHeaderCells}
             <th rowspan="3" class="col-note">비고</th>
-            <th rowspan="3" class="col-actions"></th>
           </tr>
           <tr>${monthHeaderCells}</tr>
           <tr>${sumCells}</tr>
@@ -236,6 +236,9 @@ const RosterPage = (function () {
 
     return `
       <tr class="${rowCls}" data-id="${p.id}">
+        <td class="col-actions col-actions-left">
+          <button class="btn-roster-del" type="button" data-action="del" data-id="${p.id}" title="행 삭제">×</button>
+        </td>
         <td class="col-empType ${empCls}">
           <select class="roster-select" data-action="empType" data-id="${p.id}">${empOpts}</select>
         </td>
@@ -254,9 +257,6 @@ const RosterPage = (function () {
         ${monthCells}
         <td class="col-note">
           <input class="roster-input" type="text" data-action="note" data-id="${p.id}" value="${escapeHtml(p.note || '')}" placeholder="" />
-        </td>
-        <td class="col-actions">
-          <button class="btn-roster-del" type="button" data-action="del" data-id="${p.id}" title="행 삭제">×</button>
         </td>
       </tr>
     `;

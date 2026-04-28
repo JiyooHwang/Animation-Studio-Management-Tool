@@ -114,9 +114,25 @@ const PersonnelPage = (function () {
         <span class="spacer"></span>
         <button class="btn" id="p-add-month" type="button">+ 한 달 추가</button>
         <button class="btn ghost" id="p-remove-month" type="button">- 한 달 제거</button>
-        <span style="font-size:11px; color:var(--text-dim); margin-left:10px;">※ 인원 값은 [프로젝트] 페이지에서 자동 집계</span>
+        <span style="font-size:11px; color:var(--text-dim); margin-left:10px;">※ 본부인원 - 프로젝트 투입 = 잉여(+) / 부족(-)</span>
       </div>
     `;
+  }
+
+  // 셀 값 계산: 본부인원의 팀별 가용 - 프로젝트의 그 주 투입
+  // 잉여(+) / 부족(-) — 양수=빨강, 음수=파랑
+  function cellValueFor(teamId, year, month, week) {
+    const available = RosterData.countForTeamMonth(teamId, year, month);
+    const allocated = ProjectData.headcountFor(teamId, year, month, week, filter.project);
+    return available - allocated;
+  }
+
+  // +/- 포맷팅
+  function formatCell(num) {
+    if (num === 0) return '0';
+    const abs = Math.abs(num);
+    const str = Number.isInteger(abs) ? String(abs) : abs.toFixed(1);
+    return num > 0 ? `+${str}` : `-${str}`;
   }
 
   function renderTable(months) {
@@ -155,17 +171,21 @@ const PersonnelPage = (function () {
 
     const rows = TEAMS.map((team) => renderRow(team, months)).join('');
 
-    // 합계 row - 프로젝트 페이지 데이터에서 derive
+    // 합계 row - 모든 팀의 잉여/부족 합산
     const totalCells = months.map((m, mi) => {
       const nextSameYear = months[mi + 1] && months[mi + 1].year === m.year;
       const groupEndCls = nextSameYear ? 'month-end' : 'year-end';
       return [1, 2, 3, 4].map((w, wi) => {
         let sum = 0;
         TEAMS.forEach((t) => {
-          sum += ProjectData.headcountFor(t.id, m.year, m.month, w, filter.project);
+          sum += cellValueFor(t.id, m.year, m.month, w);
         });
-        const cls = wi === 3 ? `col-week ${groupEndCls}` : 'col-week';
-        return `<td class="${cls}">${sum === 0 ? '0.0' : sum.toFixed(1)}</td>`;
+        let cls = 'col-week';
+        if (sum > 0) cls += ' month-pos';
+        else if (sum < 0) cls += ' month-neg';
+        else cls += ' month-zero';
+        if (wi === 3) cls += ' ' + groupEndCls;
+        return `<td class="${cls}">${formatCell(sum)}</td>`;
       }).join('');
     }).join('');
 
@@ -194,20 +214,22 @@ const PersonnelPage = (function () {
   function renderRow(team, months) {
     const textColor = team.textColor || pickTextColor(team.color);
 
-    // 프로젝트 페이지의 주별 리소스합에서 derive (read-only)
+    // 본부인원(가용) - 프로젝트 투입 = 잉여(+) / 부족(-)
     const cells = months.map((m, mi) => {
       const nextSameYear = months[mi + 1] && months[mi + 1].year === m.year;
       const groupEndCls = nextSameYear ? 'month-end' : 'year-end';
 
       return [1, 2, 3, 4].map((w, wi) => {
-        const num = ProjectData.headcountFor(team.id, m.year, m.month, w, filter.project);
+        const available = RosterData.countForTeamMonth(team.id, m.year, m.month);
+        const allocated = ProjectData.headcountFor(team.id, m.year, m.month, w, filter.project);
+        const num = available - allocated;
         let cls = 'col-week';
         if (num === 0) cls += ' month-zero';
         else if (num > 0) cls += ' month-pos';
         else cls += ' month-neg';
         if (wi === 3) cls += ' ' + groupEndCls;
-        const display = num === 0 ? '0.0' : num.toFixed(1);
-        return `<td class="${cls}" title="프로젝트 페이지에서 자동 집계">${display}</td>`;
+        const tip = `본부 가용 ${available} - 투입 ${allocated.toFixed(1)} = ${num > 0 ? '+' : ''}${num.toFixed(1)}`;
+        return `<td class="${cls}" title="${tip}">${formatCell(num)}</td>`;
       }).join('');
     }).join('');
 

@@ -1,5 +1,52 @@
 /* ===== Project detail page ===== */
 
+/* 프로젝트 chips 네비게이터 */
+.proj-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.proj-chips.empty {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-style: italic;
+}
+.proj-chips-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+.proj-chip {
+  border: 1px solid var(--line);
+  background: #fafafa;
+  color: var(--text);
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.proj-chip:hover {
+  border-color: var(--text-dim);
+  background: #f0f0f0;
+}
+.proj-chip.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
 .project-meta {
   display: grid;
   grid-template-columns: 1fr auto;

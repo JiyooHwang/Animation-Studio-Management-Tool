@@ -299,6 +299,29 @@ const ProjectData = {
   },
 };
 
+// 본부인원(roster) 헬퍼 - 인원 페이지가 팀별 가용 인원을 derive
+const RosterData = {
+  STORE_LIST: 'roster.list.v1',
+
+  list() {
+    const data = Store.read(this.STORE_LIST, []);
+    return Array.isArray(data) ? data : [];
+  },
+
+  // 특정 팀의 (year, month) 가용 인원 수 (monthly 값의 합)
+  // monthly: 1=재직, 0=비재직 → 해당 월의 활성 인원 수
+  countForTeamMonth(teamId, year, month) {
+    const key = `${year}-${month}`;
+    let count = 0;
+    this.list().forEach((p) => {
+      if (p.teamId !== teamId) return;
+      const v = (p.monthly || {})[key];
+      if (v !== undefined && v !== null && v !== '') count += Number(v) || 0;
+    });
+    return count;
+  },
+};
+
 // 연도 옵션
 const YEARS = [2024, 2025, 2026, 2027, 2028];
 
