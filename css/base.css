@@ -17,7 +17,9 @@
   --neutral-bg: #d9d9d9;
   --row-yellow: #fff7a8;
   --row-pink: #f8d7da;
-  --row-header: #2c2c2c;
+  --row-header: #e5e5e5;
+  --row-header-text: #1f1f1f;
+  --row-header-sub: #efefef;
 }
 
 html, body {

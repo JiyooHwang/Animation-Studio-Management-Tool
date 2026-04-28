@@ -25,8 +25,8 @@
 
 .cost-table thead th {
   background: var(--row-header);
-  color: #fff;
-  font-weight: 500;
+  color: var(--row-header-text);
+  font-weight: 600;
   font-size: 11px;
   text-align: center;
   letter-spacing: 0.04em;
@@ -133,8 +133,8 @@
 }
 
 .section-divider {
-  background: #2c2c2c;
-  color: #fff;
+  background: var(--row-header);
+  color: var(--row-header-text);
   text-align: center;
   font-weight: 600;
   padding: 6px 8px;

@@ -127,6 +127,8 @@ const ProjectPage = (function () {
 
     return `
       <div class="project-toolbar">
+        <button class="btn primary" id="proj-add-project" type="button">+ 프로젝트 추가</button>
+        <button class="btn ghost" id="proj-del-project" type="button">현재 프로젝트 삭제</button>
         <span class="spacer" style="flex:1;"></span>
         <label style="font-size:11px; color:var(--text-dim);">시작</label>
         <select id="proj-start-year">${yearOpts}</select>
@@ -331,6 +333,32 @@ const ProjectPage = (function () {
     const projSel = mountEl.querySelector('#proj-select');
     if (projSel) projSel.addEventListener('change', (e) => {
       state.projectId = e.target.value;
+      persistFilter();
+      render();
+    });
+
+    // 프로젝트 추가 (현재 프로젝트로 즉시 전환)
+    const addProjBtn = mountEl.querySelector('#proj-add-project');
+    if (addProjBtn) addProjBtn.addEventListener('click', () => {
+      const name = prompt('새 프로젝트 이름을 입력하세요:', '');
+      if (name === null) return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const newId = Projects.add(trimmed);
+      state.projectId = newId;
+      persistFilter();
+      render();
+    });
+
+    // 현재 프로젝트 삭제
+    const delProjBtn = mountEl.querySelector('#proj-del-project');
+    if (delProjBtn) delProjBtn.addEventListener('click', () => {
+      if (!state.projectId) return;
+      const name = Projects.getName(state.projectId);
+      if (!confirm(`프로젝트 "${name}" 을(를) 삭제할까요?\n관련 비용/투입 인력 데이터도 함께 삭제됩니다.`)) return;
+      Projects.remove(state.projectId);
+      const list = Projects.list();
+      state.projectId = list.length ? list[0].id : null;
       persistFilter();
       render();
     });
