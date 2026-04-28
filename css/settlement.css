@@ -117,7 +117,8 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-width: 200px;
+  min-width: 280px;
+  flex-wrap: wrap;
 }
 .settlement-table .dep-prefix {
   font-weight: 700;
@@ -153,6 +154,28 @@
   background: #fff;
   font-weight: 700;
 }
+/* 입금일 input - 평소엔 저장된 라벨처럼 보이고, 호버/포커스 시에만 편집 가능 */
+.settlement-table .dep-date-input {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-family: inherit;
+  color: #047857;
+  border-radius: 3px;
+  width: 130px;
+}
+.settlement-table .dep-date-input:hover {
+  border-color: #6ee7b7;
+  background: rgba(255, 255, 255, 0.6);
+}
+.settlement-table .dep-date-input:focus {
+  outline: none;
+  border-color: #059669;
+  background: #fff;
+}
+.settlement-table .dep-date-input:invalid,
+.settlement-table .dep-date-input:placeholder-shown { color: #9ca3af; }
 .settlement-table .dep-month-input {
   width: 100%;
   border: none;

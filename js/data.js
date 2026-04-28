@@ -432,6 +432,7 @@ const SettlementData = {
     all[projectId].push({
       id,
       payer: payer || '',
+      paidDate: '',
       monthly: {},
     });
     this.saveDeposits(all);
@@ -452,6 +453,16 @@ const SettlementData = {
     const item = list.find((d) => d.id === depId);
     if (!item) return;
     item.payer = payer || '';
+    this.saveDeposits(all);
+  },
+
+  updateDepositDate(projectId, depId, paidDate) {
+    const all = this.allDeposits();
+    const list = all[projectId];
+    if (!Array.isArray(list)) return;
+    const item = list.find((d) => d.id === depId);
+    if (!item) return;
+    item.paidDate = paidDate || '';
     this.saveDeposits(all);
   },
 

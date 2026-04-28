@@ -193,6 +193,7 @@ const SettlementPage = (function () {
               <div class="dep-row-wrap">
                 <span class="dep-prefix">입금:</span>
                 <input class="dep-payer-input" type="text" data-action="dep-payer" data-project="${projectId}" data-id="${d.id}" value="${escapeHtml(d.payer || '')}" placeholder="입금처" />
+                <input class="dep-date-input" type="date" data-action="dep-date" data-project="${projectId}" data-id="${d.id}" value="${escapeHtml(d.paidDate || '')}" title="입금일" />
                 <button class="btn-dep-del" type="button" data-action="dep-del" data-project="${projectId}" data-id="${d.id}" title="입금처 삭제">×</button>
               </div>
             </td>
@@ -262,6 +263,13 @@ const SettlementPage = (function () {
       });
     });
 
+    // 입금일 편집 (재렌더 불필요)
+    mountEl.querySelectorAll('[data-action="dep-date"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        SettlementData.updateDepositDate(input.dataset.project, input.dataset.id, input.value);
+      });
+    });
+
     // 월별 입금액 편집
     mountEl.querySelectorAll('[data-action="dep-month"]').forEach((input) => {
       input.addEventListener('change', () => {
@@ -309,7 +317,8 @@ const SettlementPage = (function () {
       const deposits = SettlementData.depositsFor(p.id);
       deposits.forEach((d) => {
         const monthly = MONTHS.map((m) => Math.round(Number((d.monthly || {})[`${filter.year}-${m}`]) || 0));
-        const label = '입금: ' + (d.payer || '(미지정)');
+        const datePart = d.paidDate ? ` / ${d.paidDate}` : '';
+        const label = '입금: ' + (d.payer || '(미지정)') + datePart;
         lines.push([csvCell(p.name), csvCell(label), ...monthly, sumArr(monthly)].join(','));
       });
     });
