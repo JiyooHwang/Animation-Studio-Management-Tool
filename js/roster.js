@@ -103,23 +103,12 @@ const RosterPage = (function () {
     const months = periodMonths();
     const last = months[months.length - 1];
 
-    // 월별 합계 중 최댓값 = 표시 기간 내 피크 재직 인원
-    const monthlySums = months.map((m) => {
-      let s = 0;
-      people.forEach((p) => {
-        s += RosterData.effectiveMonthly(p, m.year, m.month);
-      });
-      return s;
-    });
-    const peakHeadcount = monthlySums.length ? Math.max(0, ...monthlySums) : 0;
-
     mountEl.innerHTML = `
       <div class="topbar">
         <h1>본부 인원 (직원 명단)</h1>
         <div class="summary">
           기간 <strong>${period.startYear}.${pad(period.startMonth)} ~ ${last.year}.${pad(last.month)}</strong>
           · 등록 행 ${people.length}건
-          · 인원 <strong>${formatSum(peakHeadcount)}</strong>명
         </div>
       </div>
       ${renderToolbar()}
@@ -142,6 +131,7 @@ const RosterPage = (function () {
       <div class="roster-toolbar">
         <button class="btn primary" id="r-add" type="button">+ 행 추가</button>
         <button class="btn" id="r-add10" type="button">+ 10행 추가</button>
+        <button class="btn ghost" id="r-remove-last" type="button">- 마지막 행 제거</button>
         <span class="spacer" style="flex:1;"></span>
         <label style="font-size:11px; color:var(--text-dim);">시작</label>
         <select id="r-start-year">${yearOpts}</select>
@@ -288,6 +278,14 @@ const RosterPage = (function () {
     if (addBtn) addBtn.addEventListener('click', addPerson);
     const add10 = mountEl.querySelector('#r-add10');
     if (add10) add10.addEventListener('click', () => addPeople(10));
+    const rmLast = mountEl.querySelector('#r-remove-last');
+    if (rmLast) rmLast.addEventListener('click', () => {
+      if (people.length === 0) return;
+      const last = people[people.length - 1];
+      const name = last && last.name ? last.name : '마지막 행';
+      if (!confirm(`"${name}" 을(를) 삭제할까요?`)) return;
+      deletePerson(last.id);
+    });
 
     const sy = mountEl.querySelector('#r-start-year');
     const sm = mountEl.querySelector('#r-start-month');

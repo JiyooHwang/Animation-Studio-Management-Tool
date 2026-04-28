@@ -68,19 +68,22 @@
 .roster-table .col-team      { width: 160px; }
 .roster-table .col-month     { width: 44px; text-align: center; }
 .roster-table .col-note      { width: 180px; }
-.roster-table .col-actions   { width: 36px; text-align: center; background: #fafafa; }
+.roster-table .col-actions   { width: 50px; text-align: center; background: #fef2f2; padding: 4px 2px; }
 
-/* 좌측 sticky 삭제 컬럼 - 가로 스크롤해도 항상 보임 */
+/* 좌측 sticky 삭제 컬럼 - 가로 스크롤해도 항상 보임 (sticky가 안 먹어도 첫 컬럼이라 보임) */
 .roster-table .col-actions-left {
   position: sticky;
   left: 0;
-  z-index: 2;
-  background: #fafafa;
-  border-right: 2px solid var(--line);
+  z-index: 5;
+  background: #fef2f2 !important;
+  border-right: 2px solid var(--danger);
+  min-width: 50px;
 }
 .roster-table thead .col-actions-left {
-  z-index: 4;
-  background: #f0f0f0;
+  z-index: 6;
+  background: #fee2e2 !important;
+  color: var(--danger);
+  font-weight: 700;
 }
 
 .roster-table tbody tr:hover td { background: #fafafa; }
