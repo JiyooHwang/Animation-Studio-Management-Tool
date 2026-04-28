@@ -175,12 +175,22 @@ const CostPage = (function () {
   }
 
   function renderHQRow(total, all) {
+    // 모든 프로젝트의 예산 / 지원사업 / 청구가능비용 합산 (cost.v1 store에서)
+    const budgetSums = { 예산: 0, 지원사업: 0, 청구가능비용: 0 };
+    all.forEach((p) => {
+      const proj = data[p.id];
+      if (!proj || !proj.budget) return;
+      budgetSums.예산 += Number(proj.budget.예산) || 0;
+      budgetSums.지원사업 += Number(proj.budget.지원사업) || 0;
+      budgetSums.청구가능비용 += Number(proj.budget.청구가능비용) || 0;
+    });
+
     return `
       <tr>
         <td rowspan="3" class="col-class">본부 전체</td>
         <td rowspan="3" class="col-project"></td>
-        <td class="label-cell"></td>
-        <td class="value-cell"></td>
+        <td class="label-cell hq-budget-label">[전체 프로젝트 총 예산]</td>
+        <td class="value-yellow">${formatNumber(budgetSums.예산, { zeroAsBlank: true })}</td>
         <td class="label-pink">총비용</td>
         <td class="value-pink">${formatNumber(total.총비용, { zeroAsBlank: true })}</td>
         <td class="label-cell" colspan="2" style="text-align:center;">매출인식</td>
@@ -191,8 +201,8 @@ const CostPage = (function () {
         }).join('')}
       </tr>
       <tr>
-        <td class="label-cell"></td>
-        <td class="value-cell"></td>
+        <td class="label-cell hq-budget-label">[전체 프로젝트 총 지원사업]</td>
+        <td class="value-yellow">${formatNumber(budgetSums.지원사업, { zeroAsBlank: true })}</td>
         <td class="label-pink">내부비용</td>
         <td class="value-pink">${formatNumber(total.내부비용, { zeroAsBlank: true })}</td>
         <td class="label-cell" colspan="2" style="text-align:center;">청구</td>
@@ -203,8 +213,8 @@ const CostPage = (function () {
         }).join('')}
       </tr>
       <tr>
-        <td class="label-cell"></td>
-        <td class="value-cell"></td>
+        <td class="label-cell hq-budget-label">[전체 프로젝트 총 청구가능비용]</td>
+        <td class="value-yellow">${formatNumber(budgetSums.청구가능비용, { zeroAsBlank: true })}</td>
         <td class="label-pink">외주비</td>
         <td class="value-pink">${formatNumber(total.외주비, { zeroAsBlank: true })}</td>
         <td class="label-cell" colspan="2" style="text-align:center;">잔액</td>
