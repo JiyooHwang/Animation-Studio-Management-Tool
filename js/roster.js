@@ -7,7 +7,7 @@ const RosterPage = (function () {
   const STORE_PERIOD = 'roster.period.v1';
   const DEFAULT_PERIOD = { startYear: 2025, startMonth: 11, monthCount: 14 };
 
-  const EMP_TYPES = ['임원', '정규직', '계약직'];
+  const EMP_TYPES = ['임원', '정규직', '계약직', '휴직'];
   const POSITIONS = ['부사장/본부장', '실장', '팀장', '파트장', '팀원'];
   const MANAGER_POSITIONS = ['부사장/본부장', '실장', '팀장', '파트장'];
 
@@ -59,6 +59,8 @@ const RosterPage = (function () {
       name: '',
       position: '팀원',
       contractEnd: '',
+      leaveStart: '',
+      leaveEnd: '',
       teamId: TEAMS[0] ? TEAMS[0].id : '',
       monthly: defaultPersonMonthly(),
       note: '',
@@ -105,8 +107,7 @@ const RosterPage = (function () {
     const monthlySums = months.map((m) => {
       let s = 0;
       people.forEach((p) => {
-        const v = (p.monthly || {})[monthKey(m.year, m.month)];
-        if (v !== undefined && v !== null && v !== '') s += Number(v) || 0;
+        s += RosterData.effectiveMonthly(p, m.year, m.month);
       });
       return s;
     });
@@ -175,12 +176,11 @@ const RosterPage = (function () {
       return `<th class="${cls}">${m.month}월</th>`;
     }).join('');
 
-    // 합계 row - 해당 월에 재직 중인 전체 인원의 monthly 값 합 (0이어도 명시적으로 표시)
+    // 합계 row - 해당 월에 재직 중인 전체 인원 (휴직 중인 인원은 자동 제외)
     const sumCells = months.map((m, mi) => {
       let s = 0;
       people.forEach((p) => {
-        const v = (p.monthly || {})[monthKey(m.year, m.month)];
-        if (v !== undefined && v !== null && v !== '') s += Number(v) || 0;
+        s += RosterData.effectiveMonthly(p, m.year, m.month);
       });
       const isYearEnd = mi < months.length - 1 && months[mi + 1].year !== m.year;
       const cls = isYearEnd ? 'sum-header year-end' : 'sum-header';
@@ -193,11 +193,11 @@ const RosterPage = (function () {
       <table class="roster-table">
         <thead>
           <tr>
-            <th rowspan="3" class="col-actions col-actions-left"></th>
+            <th rowspan="3" class="col-actions col-actions-left">삭제</th>
             <th rowspan="3" class="col-empType">고용구분</th>
             <th rowspan="3" class="col-name">성명</th>
             <th rowspan="3" class="col-position">직책</th>
-            <th rowspan="3" class="col-contract">계약종료일(계약직)</th>
+            <th rowspan="3" class="col-contract">계약/휴직 기간</th>
             <th rowspan="3" class="col-team">팀</th>
             ${yearHeaderCells}
             <th rowspan="3" class="col-note">비고</th>
@@ -222,17 +222,40 @@ const RosterPage = (function () {
     ).join('');
 
     const monthCells = months.map((m, mi) => {
+      const onLeave = RosterData.isOnLeave(p, m.year, m.month);
       const v = (p.monthly || {})[monthKey(m.year, m.month)];
       const display = (v === undefined || v === null || v === '') ? '' : String(v);
       const isZero = display !== '' && Number(v) === 0;
       const isYearEnd = mi < months.length - 1 && months[mi + 1].year !== m.year;
-      const cls = ['col-month', isZero ? 'cell-zero' : '', isYearEnd ? 'year-end' : ''].filter(Boolean).join(' ');
+      const cls = ['col-month',
+        onLeave ? 'cell-leave' : '',
+        !onLeave && isZero ? 'cell-zero' : '',
+        isYearEnd ? 'year-end' : ''].filter(Boolean).join(' ');
+      if (onLeave) {
+        // 휴직 중인 월은 입력 불가, "휴" 표시 (저장된 값은 유지)
+        return `<td class="${cls}" title="휴직 중 (인원 카운트 제외)">휴</td>`;
+      }
       return `<td class="${cls}"><input class="roster-month-input" type="text" data-action="month" data-id="${p.id}" data-year="${m.year}" data-month="${m.month}" value="${display}" placeholder=""/></td>`;
     }).join('');
 
     const isManager = MANAGER_POSITIONS.includes(p.position);
     const rowCls = isManager ? 'row-manager' : '';
     const empCls = `empType-${p.empType}`;
+
+    // 계약/휴직 컬럼 - empType에 따라 동적
+    let contractCell;
+    if (p.empType === '계약직') {
+      contractCell = `<input class="roster-input text-center" type="text" data-action="contractEnd" data-id="${p.id}" value="${escapeHtml(p.contractEnd || '')}" placeholder="YYYY-MM-DD" />`;
+    } else if (p.empType === '휴직') {
+      contractCell = `
+        <div class="leave-period">
+          <input class="roster-leave-input" type="month" data-action="leaveStart" data-id="${p.id}" value="${escapeHtml(p.leaveStart || '')}" title="휴직 시작 (YYYY-MM)" />
+          <span class="leave-sep">~</span>
+          <input class="roster-leave-input" type="month" data-action="leaveEnd" data-id="${p.id}" value="${escapeHtml(p.leaveEnd || '')}" title="휴직 종료 (YYYY-MM)" />
+        </div>`;
+    } else {
+      contractCell = `<span class="cell-dash">-</span>`;
+    }
 
     return `
       <tr class="${rowCls}" data-id="${p.id}">
@@ -248,9 +271,7 @@ const RosterPage = (function () {
         <td class="col-position">
           <select class="roster-select" data-action="position" data-id="${p.id}">${posOpts}</select>
         </td>
-        <td class="col-contract">
-          <input class="roster-input text-center" type="text" data-action="contractEnd" data-id="${p.id}" value="${escapeHtml(p.contractEnd || '')}" placeholder="${p.empType === '계약직' ? 'YYYY-MM-DD' : '-'}" />
-        </td>
+        <td class="col-contract">${contractCell}</td>
         <td class="col-team">
           <select class="roster-select" data-action="teamId" data-id="${p.id}">${teamOpts}</select>
         </td>
@@ -322,6 +343,16 @@ const RosterPage = (function () {
         const id = input.dataset.id;
         const action = input.dataset.action;
         updatePerson(id, { [action]: input.value });
+      });
+    });
+
+    // 휴직 기간 입력 (재렌더 필요: 월별 셀의 휴직 표시 갱신)
+    mountEl.querySelectorAll('[data-action="leaveStart"], [data-action="leaveEnd"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const id = input.dataset.id;
+        const action = input.dataset.action;
+        updatePerson(id, { [action]: input.value });
+        render();
       });
     });
 

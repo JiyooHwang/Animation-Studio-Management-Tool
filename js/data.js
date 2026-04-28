@@ -308,15 +308,33 @@ const RosterData = {
     return Array.isArray(data) ? data : [];
   },
 
-  // 특정 팀의 (year, month) 가용 인원 수 (monthly 값의 합)
-  // monthly: 1=재직, 0=비재직 → 해당 월의 활성 인원 수
+  // 휴직 중인지 판정
+  // - empType === '휴직' AND 현재 월이 leaveStart~leaveEnd 범위 안에 있음
+  // - leaveStart/leaveEnd 미설정 시: 전체 기간 휴직으로 간주
+  isOnLeave(person, year, month) {
+    if (!person || person.empType !== '휴직') return false;
+    const start = person.leaveStart;  // 'YYYY-MM'
+    const end = person.leaveEnd;
+    const cur = `${year}-${String(month).padStart(2, '0')}`;
+    if (start && cur < start) return false;
+    if (end && cur > end) return false;
+    return true;
+  },
+
+  // 휴직 중이면 0, 아니면 stored monthly 값
+  effectiveMonthly(person, year, month) {
+    if (this.isOnLeave(person, year, month)) return 0;
+    const v = (person.monthly || {})[`${year}-${month}`];
+    if (v === undefined || v === null || v === '') return 0;
+    return Number(v) || 0;
+  },
+
+  // 특정 팀의 (year, month) 가용 인원 수 (휴직 제외)
   countForTeamMonth(teamId, year, month) {
-    const key = `${year}-${month}`;
     let count = 0;
     this.list().forEach((p) => {
       if (p.teamId !== teamId) return;
-      const v = (p.monthly || {})[key];
-      if (v !== undefined && v !== null && v !== '') count += Number(v) || 0;
+      count += this.effectiveMonthly(p, year, month);
     });
     return count;
   },

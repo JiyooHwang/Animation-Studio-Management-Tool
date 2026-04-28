@@ -64,7 +64,7 @@
 .roster-table .col-empType   { width: 70px; text-align: center; }
 .roster-table .col-name      { width: 80px; }
 .roster-table .col-position  { width: 75px; text-align: center; }
-.roster-table .col-contract  { width: 100px; text-align: center; }
+.roster-table .col-contract  { width: 170px; text-align: center; }
 .roster-table .col-team      { width: 160px; }
 .roster-table .col-month     { width: 44px; text-align: center; }
 .roster-table .col-note      { width: 180px; }
@@ -132,6 +132,34 @@
 }
 .roster-table td.cell-zero .roster-month-input { color: var(--text-dim); }
 
+/* 휴직 중 셀 - 입력 불가, "휴" 표시 */
+.roster-table td.cell-leave {
+  background: #ede9fe;
+  color: #6b21a8;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* 계약/휴직 컬럼 동적 입력 */
+.leave-period {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+}
+.roster-leave-input {
+  border: 1px solid var(--line);
+  background: #fff;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  width: 70px;
+}
+.roster-leave-input:focus { outline: none; border-color: var(--primary); }
+.leave-sep { color: var(--text-dim); font-size: 11px; }
+.cell-dash { color: var(--text-faint); }
+
 /* 행 삭제 */
 .btn-roster-del {
   border: 1px solid transparent;
@@ -157,6 +185,7 @@
 /* 고용구분별 글자색 (선택적 강조) */
 .empType-임원 { color: #6b21a8; font-weight: 600; }
 .empType-계약직 { color: #b45309; }
+.empType-휴직 { color: #7c3aed; font-weight: 600; background: #f5f3ff; }
 
 .roster-empty {
   padding: 40px;
