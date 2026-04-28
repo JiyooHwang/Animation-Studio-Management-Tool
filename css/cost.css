@@ -56,18 +56,25 @@
 .cost-table .value-cell {
   text-align: right;
   background: #fff;
+  min-width: 120px;
+  padding: 4px 10px;
 }
 .cost-table .value-pink {
   text-align: right;
   background: #f8d7da;
+  min-width: 140px;
+  padding: 4px 10px;
 }
 .cost-table .value-yellow {
   text-align: right;
   background: #fff7a8;
+  min-width: 150px;
+  padding: 4px 10px;
 }
 
 .cost-table .col-class {
-  width: 80px;
+  width: 90px;
+  min-width: 90px;
   text-align: center;
   background: #fafafa;
   font-weight: 600;
