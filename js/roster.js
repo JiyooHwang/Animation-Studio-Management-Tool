@@ -52,8 +52,8 @@ const RosterPage = (function () {
 
   function teamLabel(team) { return team.name || team.role; }
 
-  function addPerson() {
-    people.push({
+  function makeNewPerson() {
+    return {
       id: 'emp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       empType: '정규직',
       name: '',
@@ -64,9 +64,19 @@ const RosterPage = (function () {
       teamId: TEAMS[0] ? TEAMS[0].id : '',
       monthly: defaultPersonMonthly(),
       note: '',
-    });
+    };
+  }
+
+  function addPerson(insertIndex) {
+    const p = makeNewPerson();
+    if (typeof insertIndex === 'number' && insertIndex >= 0 && insertIndex <= people.length) {
+      people.splice(insertIndex, 0, p);
+    } else {
+      people.push(p);
+    }
     persist();
     render();
+    return p.id;
   }
 
   function addPeople(n) {
@@ -132,6 +142,7 @@ const RosterPage = (function () {
         <button class="btn primary" id="r-add" type="button">+ 행 추가</button>
         <button class="btn" id="r-add10" type="button">+ 10행 추가</button>
         <button class="btn ghost" id="r-remove-last" type="button">- 마지막 행 제거</button>
+        <span style="font-size:11px; color:var(--text-dim); margin-left:6px;">💡 행 위에서 <strong>우클릭</strong>으로 위/아래 삽입 가능</span>
         <span class="spacer" style="flex:1;"></span>
         <label style="font-size:11px; color:var(--text-dim);">시작</label>
         <select id="r-start-year">${yearOpts}</select>
@@ -371,6 +382,76 @@ const RosterPage = (function () {
         render();
       });
     });
+
+    // 우클릭 컨텍스트 메뉴 - 스프레드시트처럼 위/아래 행 삽입
+    mountEl.querySelectorAll('tbody tr[data-id]').forEach((tr) => {
+      tr.addEventListener('contextmenu', (e) => {
+        // 입력/셀렉트 우클릭은 기본 동작(텍스트 선택 등)에 방해되지 않게 정밀 타깃팅
+        if (e.target.closest('input, select, button')) {
+          // 그래도 메뉴는 띄우자 - 사용자 편의
+        }
+        e.preventDefault();
+        showContextMenu(e.pageX, e.pageY, tr.dataset.id);
+      });
+    });
+  }
+
+  // ===== 컨텍스트 메뉴 =====
+  let ctxMenu = null;
+
+  function ensureContextMenu() {
+    if (ctxMenu && document.body.contains(ctxMenu)) return ctxMenu;
+    const menu = document.createElement('div');
+    menu.className = 'roster-ctxmenu';
+    menu.innerHTML = `
+      <button type="button" data-act="insert-above">↑ 위에 행 추가</button>
+      <button type="button" data-act="insert-below">↓ 아래에 행 추가</button>
+      <div class="ctx-sep"></div>
+      <button type="button" data-act="delete" class="danger">× 이 행 삭제</button>
+    `;
+    document.body.appendChild(menu);
+    menu.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const act = btn.dataset.act;
+      const targetId = menu.dataset.targetId;
+      const idx = people.findIndex((p) => p.id === targetId);
+      hideContextMenu();
+      if (idx < 0) return;
+      if (act === 'insert-above') {
+        addPerson(idx);
+      } else if (act === 'insert-below') {
+        addPerson(idx + 1);
+      } else if (act === 'delete') {
+        const p = people[idx];
+        const name = p && p.name ? p.name : '이 행';
+        if (confirm(`"${name}" 을(를) 삭제할까요?`)) deletePerson(targetId);
+      }
+    });
+    document.addEventListener('click', (e) => {
+      if (!menu.contains(e.target)) hideContextMenu();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hideContextMenu();
+    });
+    ctxMenu = menu;
+    return menu;
+  }
+
+  function showContextMenu(x, y, personId) {
+    const menu = ensureContextMenu();
+    menu.dataset.targetId = personId;
+    menu.style.display = 'block';
+    // viewport 경계 보정
+    const rect = menu.getBoundingClientRect();
+    const maxX = window.innerWidth - rect.width - 8;
+    const maxY = window.innerHeight - rect.height - 8;
+    menu.style.left = Math.min(x, maxX + window.scrollX) + 'px';
+    menu.style.top = Math.min(y, maxY + window.scrollY) + 'px';
+  }
+
+  function hideContextMenu() {
+    if (ctxMenu) ctxMenu.style.display = 'none';
   }
 
   function formatSum(n) {

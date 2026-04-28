@@ -198,3 +198,45 @@
 
 .month-end { border-right: 2px solid #999 !important; }
 .year-end  { border-right: 3px solid var(--line-strong) !important; }
+
+/* ===== 우클릭 컨텍스트 메뉴 (스프레드시트 스타일) ===== */
+.roster-ctxmenu {
+  position: absolute;
+  display: none;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  padding: 4px;
+  z-index: 1000;
+  min-width: 170px;
+  font-family: inherit;
+}
+.roster-ctxmenu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.roster-ctxmenu button:hover {
+  background: #eef2ff;
+  color: var(--primary-dark);
+}
+.roster-ctxmenu button.danger { color: var(--danger); }
+.roster-ctxmenu button.danger:hover {
+  background: #fee2e2;
+  color: var(--danger);
+}
+.roster-ctxmenu .ctx-sep {
+  height: 1px;
+  background: var(--line);
+  margin: 4px 0;
+}
