@@ -33,7 +33,7 @@
 }
 .cost-table thead .header-budget,
 .cost-table thead .header-cost {
-  background: #ffffff;
+  background: #fffbeb;
   color: var(--text);
   font-weight: 800;
   font-size: 22px;
