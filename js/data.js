@@ -29,15 +29,15 @@ function getTeam(id) {
   return TEAMS.find((t) => t.id === id);
 }
 
-// 비용/프로젝트 페이지의 프로젝트 (default)
+// 비용/프로젝트 페이지의 프로젝트 (default seed)
 const DEFAULT_PROJECTS = [
   { id: 'horangi',  category: '내부제작', name: '호랑이형님' },
   { id: 'toema2',   category: '내부제작', name: '퇴마록 2' },
   { id: 'jeonja',   category: '내부제작', name: '전자오락수호대' },
-  { id: 'kkokdu',   category: '내부제작', name: '꼭두' },
-  { id: 'elle',     category: '내부제작', name: 'Elle' },
-  { id: 'denma',    category: '내부제작', name: '덴마' },
 ];
+
+// 이전에 default로 들어있었으나 더 이상 시드하지 않는 프로젝트 id (자동 정리)
+const LEGACY_REMOVED_PROJECT_IDS = ['kkokdu', 'elle', 'denma'];
 
 // 프로젝트 목록 / 주당단가 헬퍼 (사용자 추가/삭제/이름 편집 가능)
 const Projects = {
@@ -56,6 +56,29 @@ const Projects = {
         name: legacy[p.id] || p.name,
       }));
       Store.write(this.STORE_LIST, stored);
+    }
+    // 자동 정리: 더 이상 default가 아닌 legacy seed 프로젝트 제거 + 관련 데이터 정리
+    const cleaned = stored.filter((p) => !LEGACY_REMOVED_PROJECT_IDS.includes(p.id));
+    if (cleaned.length !== stored.length) {
+      stored = cleaned;
+      Store.write(this.STORE_LIST, stored);
+      // 관련 데이터 cleanup (project.rows.v2, cost.v1)
+      const rows = Store.read('project.rows.v2', null);
+      if (rows && typeof rows === 'object') {
+        let touched = false;
+        LEGACY_REMOVED_PROJECT_IDS.forEach((id) => {
+          if (rows[id]) { delete rows[id]; touched = true; }
+        });
+        if (touched) Store.write('project.rows.v2', rows);
+      }
+      const cost = Store.read('cost.v1', null);
+      if (cost && typeof cost === 'object') {
+        let touched = false;
+        LEGACY_REMOVED_PROJECT_IDS.forEach((id) => {
+          if (cost[id]) { delete cost[id]; touched = true; }
+        });
+        if (touched) Store.write('cost.v1', cost);
+      }
     }
     return stored;
   },
