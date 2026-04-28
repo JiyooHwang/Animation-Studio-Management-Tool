@@ -176,3 +176,27 @@
 .cost-table .monthly-derived-row.external .monthly-derived-cell {
   background: #fce4ec;
 }
+
+/* 프로젝트별 시각 구분 - 굵은 윗선/아랫선 + 좌측 컬러 바 */
+.cost-table tr.proj-section-start td {
+  border-top: 4px double #555 !important;
+}
+.cost-table tr.proj-section-start td.col-class {
+  border-left: 4px solid #f59e0b !important;
+  background: #fef3c7;
+  font-weight: 700;
+}
+.cost-table tr.proj-section-start td.col-project {
+  background: #fde68a !important;
+  border-bottom: 1px solid var(--line);
+}
+/* rowspan으로 이어지는 col-class / col-project의 좌측 보더는 같은 프로젝트 그룹 동안 유지 */
+.cost-table tr.proj-section-end td {
+  border-bottom: 4px double #555 !important;
+}
+/* 같은 프로젝트의 카테고리 컬럼에도 좌측 컬러 바를 시각적으로 이어주기 위해
+   proj-section-start의 td.col-class에 컬러 바, 다른 행에서는 col-class가 rowspan으로 이미 차지함 */
+.cost-table .proj-name-input {
+  font-weight: 700;
+  font-size: 13px;
+}

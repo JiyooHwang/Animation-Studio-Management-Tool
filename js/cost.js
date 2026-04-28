@@ -265,7 +265,7 @@ const CostPage = (function () {
       }).join('');
 
     return `
-      <tr>
+      <tr class="proj-section-start">
         <td rowspan="3" class="col-class">${escapeHtml(p.category)}</td>
         <td rowspan="3" class="col-project">
           <input class="proj-name-input" type="text" data-action="rename" data-project="${p.id}" value="${escapeHtml(p.name)}" />
@@ -329,7 +329,7 @@ const CostPage = (function () {
         <td colspan="8" class="monthly-derived-label">월별 내부비용</td>
         ${cellsFor('internal')}
       </tr>
-      <tr class="monthly-derived-row external">
+      <tr class="monthly-derived-row external proj-section-end">
         <td colspan="8" class="monthly-derived-label">월별 외주비용</td>
         ${cellsFor('external')}
       </tr>
