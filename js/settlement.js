@@ -190,9 +190,11 @@ const SettlementPage = (function () {
         html += `
           <tr class="${blockCls} row-deposit">
             <td class="col-kind kind-deposit">
-              <span class="dep-prefix">입금:</span>
-              <input class="dep-payer-input" type="text" data-action="dep-payer" data-project="${projectId}" data-id="${d.id}" value="${escapeHtml(d.payer || '')}" placeholder="입금처" />
-              <button class="btn-dep-del" type="button" data-action="dep-del" data-project="${projectId}" data-id="${d.id}" title="입금처 삭제">×</button>
+              <div class="dep-row-wrap">
+                <span class="dep-prefix">입금:</span>
+                <input class="dep-payer-input" type="text" data-action="dep-payer" data-project="${projectId}" data-id="${d.id}" value="${escapeHtml(d.payer || '')}" placeholder="입금처" />
+                <button class="btn-dep-del" type="button" data-action="dep-del" data-project="${projectId}" data-id="${d.id}" title="입금처 삭제">×</button>
+              </div>
             </td>
             ${monthCells}
             <td class="num col-total">${formatNumber(Math.round(totalDep), { zeroAsBlank: true })}</td>
