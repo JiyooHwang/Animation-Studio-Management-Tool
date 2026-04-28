@@ -152,10 +152,9 @@ const CostPage = (function () {
       <table class="cost-table">
         <thead>
           <tr>
-            <th colspan="3" rowspan="2" class="header-cell">Project<br/>${escapeHtml(filterLabel)}</th>
-            <th rowspan="2" class="col-class header-budget">예산</th>
-            <th rowspan="2" class="col-class header-amount">금액</th>
-            <th rowspan="2" class="col-class header-pnl">손익</th>
+            <th colspan="2" rowspan="2" class="header-cell">Project<br/>${escapeHtml(filterLabel)}</th>
+            <th colspan="2" rowspan="2" class="header-budget">예산</th>
+            <th colspan="2" rowspan="2" class="header-cost">비용</th>
             <th colspan="2" class="header-cell">${filter.year - 1}년 누적</th>
             <th colspan="${MONTHS.length}" class="header-cell">${filter.year}년</th>
           </tr>
@@ -186,8 +185,7 @@ const CostPage = (function () {
 
     return `
       <tr>
-        <td rowspan="3" class="col-class">본부 전체</td>
-        <td rowspan="3" class="col-project"></td>
+        <td rowspan="3" colspan="2" class="col-hq-merged">본부 전체</td>
         <td class="label-cell hq-budget-label">[전체 프로젝트 총 예산]</td>
         <td class="value-yellow">${formatNumber(budgetSums.예산, { zeroAsBlank: true })}</td>
         <td class="label-pink">총비용</td>

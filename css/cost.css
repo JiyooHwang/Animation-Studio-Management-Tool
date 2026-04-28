@@ -31,18 +31,26 @@
   text-align: center;
   letter-spacing: 0.04em;
 }
-.cost-table thead .header-budget {
-  background: #fff7a8;
-  color: #92400e;
-  font-weight: 700;
-  font-size: 14px;
+.cost-table thead .header-budget,
+.cost-table thead .header-cost {
+  background: #ffffff;
+  color: var(--text);
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.05em;
+  padding: 10px 16px;
 }
-.cost-table thead .header-amount,
-.cost-table thead .header-pnl {
-  background: #f8d7da;
-  color: #991b1b;
-  font-weight: 700;
-  font-size: 14px;
+
+/* 본부 전체 - 좌측 2칸 병합 셀 (대형 텍스트) */
+.cost-table .col-hq-merged {
+  background: #fff7a8;
+  font-weight: 800;
+  font-size: 22px;
+  text-align: center;
+  letter-spacing: 0.04em;
+  padding: 10px 12px;
+  border-left: 4px solid #f59e0b;
+  color: var(--text);
 }
 
 .cost-table .group-cell {
