@@ -31,6 +31,19 @@
   text-align: center;
   letter-spacing: 0.04em;
 }
+.cost-table thead .header-budget {
+  background: #fff7a8;
+  color: #92400e;
+  font-weight: 700;
+  font-size: 14px;
+}
+.cost-table thead .header-amount,
+.cost-table thead .header-pnl {
+  background: #f8d7da;
+  color: #991b1b;
+  font-weight: 700;
+  font-size: 14px;
+}
 
 .cost-table .group-cell {
   background: #fff7a8;
