@@ -154,7 +154,7 @@ const CostPage = (function () {
           <tr>
             <th colspan="3" rowspan="2" class="header-cell">Project<br/>${escapeHtml(filterLabel)}</th>
             <th colspan="3" class="header-cell"></th>
-            <th colspan="2" class="header-cell">25년 누적</th>
+            <th colspan="2" class="header-cell">${filter.year - 1}년 누적</th>
             <th colspan="${MONTHS.length}" class="header-cell">${filter.year}년</th>
           </tr>
           <tr>
@@ -275,7 +275,7 @@ const CostPage = (function () {
         <td class="value-yellow"><input class="cell-num" type="text" data-action="budget" data-project="${p.id}" data-field="예산" value="${proj.budget.예산 ? formatNumber(proj.budget.예산) : ''}" placeholder="0"/></td>
         <td class="label-pink">총비용</td>
         <td class="value-pink" title="프로젝트 페이지에서 자동 계산">${formatNumber(proj.cost.총비용, { zeroAsBlank: true })}</td>
-        <td class="label-cell">2025년 누적</td>
+        <td class="label-cell">${filter.year - 1}년 누적</td>
         <td class="value-cell"><input class="cell-num" type="text" data-action="cum25" data-project="${p.id}" data-field="매출인식" value="${proj.cum25.매출인식 ? formatNumber(proj.cum25.매출인식) : ''}" placeholder="0"/></td>
         ${monthsRow('매출인식')}
       </tr>
@@ -284,7 +284,7 @@ const CostPage = (function () {
         <td class="value-yellow"><input class="cell-num" type="text" data-action="budget" data-project="${p.id}" data-field="지원사업" value="${proj.budget.지원사업 ? formatNumber(proj.budget.지원사업) : ''}" placeholder="0"/></td>
         <td class="label-pink">내부비용</td>
         <td class="value-pink" title="프로젝트 페이지에서 자동 계산">${formatNumber(proj.cost.내부비용, { zeroAsBlank: true })}</td>
-        <td class="label-cell">2025년 누적</td>
+        <td class="label-cell">${filter.year - 1}년 누적</td>
         <td class="value-cell"><input class="cell-num" type="text" data-action="cum25" data-project="${p.id}" data-field="청구" value="${proj.cum25.청구 ? formatNumber(proj.cum25.청구) : ''}" placeholder="0"/></td>
         ${monthsRow('청구')}
       </tr>

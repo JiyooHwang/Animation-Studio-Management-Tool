@@ -82,9 +82,108 @@ const ProjectPage = (function () {
       <div class="project-wrap">
         ${renderTable(months)}
       </div>
+      ${renderExternalSection(months)}
     `;
 
     bindEvents();
+  }
+
+  // 외주 항목 섹션 - 사용자가 행 추가, 팀 선택, 월별 외주비 입력
+  // 각 행의 합은 그 팀의 외주비용 컬럼에 auto-sum
+  function renderExternalSection(months) {
+    if (!state.projectId) return '';
+    const items = ProjectData.externalItems(state.projectId);
+
+    const monthHeaderCells = months.map((m, mi) => {
+      const isYearEnd = mi < months.length - 1 && months[mi + 1].year !== m.year;
+      const cls = isYearEnd ? 'ext-month-header year-end' : 'ext-month-header';
+      return `<th class="${cls}">${m.year}.${m.month}월</th>`;
+    }).join('');
+
+    const yearGroups = [];
+    months.forEach((m) => {
+      const last = yearGroups[yearGroups.length - 1];
+      if (last && last.year === m.year) last.count++;
+      else yearGroups.push({ year: m.year, count: 1 });
+    });
+    const yearHeaderCells = yearGroups.map((g, gi) => {
+      const cls = gi === yearGroups.length - 1 ? 'ext-year-header' : 'ext-year-header year-end';
+      return `<th class="${cls}" colspan="${g.count}">${g.year}</th>`;
+    }).join('');
+
+    const teamOptionsFor = (selectedId) => TEAMS.map(
+      (t) => `<option value="${t.id}" ${t.id === selectedId ? 'selected' : ''}>${escapeHtml(t.role)}</option>`
+    ).join('');
+
+    let bodyRows;
+    if (items.length === 0) {
+      const totalCols = 1 + months.length + 2;
+      bodyRows = `<tr><td colspan="${totalCols}" class="ext-empty">아직 외주 항목이 없습니다. <strong>+ 외주 추가</strong> 버튼으로 추가하세요.</td></tr>`;
+    } else {
+      bodyRows = items.map((item) => {
+        const team = getTeam(item.teamId);
+        const color = team ? team.color : '#fff';
+        const textColor = team ? (team.textColor || pickTextColor(team.color)) : '#1f1f1f';
+        const monthCells = months.map((m, mi) => {
+          const k = `${m.year}-${m.month}`;
+          const v = (item.monthly || {})[k] || '';
+          const isYearEnd = mi < months.length - 1 && months[mi + 1].year !== m.year;
+          const cls = ['ext-cell', isYearEnd ? 'year-end' : ''].filter(Boolean).join(' ');
+          return `<td class="${cls}"><input class="ext-input" type="text" data-action="ext-month" data-item="${item.id}" data-year="${m.year}" data-month="${m.month}" value="${v ? formatNumber(v) : ''}" placeholder="0"/></td>`;
+        }).join('');
+        const sum = Object.values(item.monthly || {}).reduce((s, v) => s + (Number(v) || 0), 0);
+        return `
+          <tr data-item="${item.id}">
+            <td class="ext-team" style="background:${color}; color:${textColor};">
+              <select class="ext-team-select" data-action="ext-team" data-item="${item.id}">${teamOptionsFor(item.teamId)}</select>
+            </td>
+            ${monthCells}
+            <td class="ext-sum">${formatNumber(sum, { zeroAsBlank: true })}</td>
+            <td class="ext-actions"><button class="btn-ext-del" type="button" data-action="ext-del" data-item="${item.id}" title="외주 항목 삭제">×</button></td>
+          </tr>`;
+      }).join('');
+    }
+
+    // 합계 row - 모든 외주 항목의 월별 합 (= 본부 외주비 월별)
+    const totalRow = (() => {
+      const monthCells = months.map((m, mi) => {
+        const isYearEnd = mi < months.length - 1 && months[mi + 1].year !== m.year;
+        const cls = ['ext-total-cell', isYearEnd ? 'year-end' : ''].filter(Boolean).join(' ');
+        const s = ProjectData.externalSumForMonth(state.projectId, m.year, m.month);
+        return `<td class="${cls}">${formatNumber(s, { zeroAsBlank: true })}</td>`;
+      }).join('');
+      const grand = items.reduce((acc, it) => {
+        Object.values(it.monthly || {}).forEach((v) => { acc += Number(v) || 0; });
+        return acc;
+      }, 0);
+      return `<tr class="ext-total-row"><td class="ext-total-label">월별 합계</td>${monthCells}<td class="ext-sum total">${formatNumber(grand, { zeroAsBlank: true })}</td><td class="ext-actions"></td></tr>`;
+    })();
+
+    return `
+      <div class="ext-section">
+        <div class="ext-toolbar">
+          <h3>외주 항목 (월별 외주비용)</h3>
+          <span class="ext-hint">팀별 합계는 위 표의 "외주비용" 컬럼에 자동 반영됩니다.</span>
+          <span class="spacer" style="flex:1;"></span>
+          <button class="btn primary" id="ext-add" type="button">+ 외주 추가</button>
+        </div>
+        <div class="ext-wrap">
+          <table class="ext-table">
+            <thead>
+              <tr>
+                <th rowspan="2" class="ext-team-header">팀</th>
+                ${yearHeaderCells}
+                <th rowspan="2" class="ext-sum-header">합계</th>
+                <th rowspan="2" class="ext-actions"></th>
+              </tr>
+              <tr>${monthHeaderCells}</tr>
+            </thead>
+            <tbody>${bodyRows}</tbody>
+            <tfoot>${totalRow}</tfoot>
+          </table>
+        </div>
+      </div>
+    `;
   }
 
   function renderProjectChips() {
@@ -223,26 +322,19 @@ const ProjectPage = (function () {
       0
     );
 
-    // 월별 비용 계산 - 각 팀의 그 달 리소스(4주 합)를 기준으로 derive
+    // 월별 비용 계산 - 내부: 그 달 리소스 × 단가 / 외주: 외주 항목의 그 달 입력값 합
     const monthlyBreakdown = months.map((m) => {
       let monthInternal = 0;
-      let monthExternal = 0;
       TEAMS.forEach((t) => {
         const r = ProjectData.withTeamId(state.projectId, t.id);
+        if (r.kind !== '내부') return;
         const monthRes = [1, 2, 3, 4].reduce((s, w) => {
           return s + (Number((r.weeks || {})[weekKey(m.year, m.month, w)]) || 0);
         }, 0);
-        const totalRes = ProjectData.rowResources(r);
-        // 내부비용 = 그 달 리소스 × 단가 (kind=='내부'일 때)
-        if (r.kind === '내부') {
-          monthInternal += monthRes * ProjectData.rowRate(r);
-        }
-        // 외주비용은 lump sum이므로 월별 리소스 비율로 분배
-        const ext = Number(r.externalCost) || 0;
-        if (totalRes > 0 && ext > 0) {
-          monthExternal += (monthRes / totalRes) * ext;
-        }
+        if (monthRes <= 0) return;
+        monthInternal += monthRes * ProjectData.rowRate(r);
       });
+      const monthExternal = ProjectData.externalSumForMonth(state.projectId, m.year, m.month);
       return {
         internal: monthInternal,
         external: monthExternal,
@@ -303,7 +395,8 @@ const ProjectPage = (function () {
     const resources = ProjectData.rowResources(row);
     const rate = ProjectData.rowRate(row);
     const internalCost = row.kind === '내부' ? resources * rate : 0;
-    const externalCost = Number(row.externalCost) || 0;
+    // 외주비용 = 하단 외주 항목의 그 팀 합계 (read-only auto-sum)
+    const externalCost = ProjectData.externalSumForTeam(state.projectId, team.id);
     const rowTotal = internalCost + externalCost;
     const pct = totalCost > 0 ? (rowTotal / totalCost * 100) : 0;
     const isInternal = row.kind === '내부';
@@ -336,7 +429,7 @@ const ProjectPage = (function () {
         <td class="col-rate"><input class="proj-rate-input" type="text" data-action="rate" data-team="${team.id}" value="${rateDisplay}" /></td>
         <td class="col-cost col-cost-total" title="총비용 = 내부비용 + 외주비용">${formatNumber(rowTotal, { zeroAsBlank: true })}</td>
         <td class="col-cost" title="자동 계산: 리소스합 × 단가 (내부일 때)">${formatNumber(internalCost, { zeroAsBlank: true })}</td>
-        <td class="col-cost"><input class="proj-cost-input" type="text" data-action="external" data-team="${team.id}" value="${externalCost ? formatNumber(externalCost) : ''}" placeholder="0" /></td>
+        <td class="col-cost" title="하단 외주 항목 섹션의 합계 (read-only)">${formatNumber(externalCost, { zeroAsBlank: true })}</td>
         ${weekCells}
       </tr>
     `;
@@ -476,6 +569,39 @@ const ProjectPage = (function () {
     });
 
     bindDragFill();
+
+    // 외주 항목 이벤트
+    const extAddBtn = mountEl.querySelector('#ext-add');
+    if (extAddBtn) extAddBtn.addEventListener('click', () => {
+      ProjectData.addExternalItem(state.projectId);
+      render();
+    });
+    mountEl.querySelectorAll('[data-action="ext-team"]').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        ProjectData.updateExternalItem(state.projectId, sel.dataset.item, { teamId: sel.value });
+        render();
+      });
+    });
+    mountEl.querySelectorAll('[data-action="ext-month"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const num = parseNumber(input.value);
+        ProjectData.setExternalMonthly(
+          state.projectId,
+          input.dataset.item,
+          Number(input.dataset.year),
+          Number(input.dataset.month),
+          num
+        );
+        render();
+      });
+    });
+    mountEl.querySelectorAll('[data-action="ext-del"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!confirm('이 외주 항목을 삭제할까요?')) return;
+        ProjectData.removeExternalItem(state.projectId, btn.dataset.item);
+        render();
+      });
+    });
   }
 
   // 구글 스프레드시트 스타일 드래그 채우기

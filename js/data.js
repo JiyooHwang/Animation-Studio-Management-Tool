@@ -239,10 +239,93 @@ const ProjectData = {
     return this.rowResources(r) * this.rowRate(r);
   },
 
-  // 외주비용 = 항상 사용자 입력값 (externalCost)
+  // 외주비용 = 그 팀의 외주 항목 월별 합계 (사용자가 추가하는 외주 행에서 derive)
+  // 만약 외주 항목이 없으면 legacy externalCost(lump sum) fallback
   rowExternalCost(projectId, teamId) {
+    const fromItems = this.externalSumForTeam(projectId, teamId);
+    if (fromItems > 0) return fromItems;
     const r = this.rowFor(projectId, teamId);
     return Number(r.externalCost) || 0;
+  },
+
+  // === 외주 항목 (사용자가 행 추가, 팀 선택, 월별 입력) ===
+  STORE_EXTERNAL: 'project.external.v1', // { [projectId]: [ {id, teamId, monthly: {YYYY-M: n}} ] }
+
+  allExternal() {
+    const data = Store.read(this.STORE_EXTERNAL, {});
+    return data && typeof data === 'object' ? data : {};
+  },
+  externalItems(projectId) {
+    const data = this.allExternal();
+    return Array.isArray(data[projectId]) ? data[projectId] : [];
+  },
+  saveExternal(all) {
+    Store.write(this.STORE_EXTERNAL, all);
+  },
+  addExternalItem(projectId, teamId) {
+    const all = this.allExternal();
+    if (!Array.isArray(all[projectId])) all[projectId] = [];
+    const id = 'ext_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    all[projectId].push({
+      id,
+      teamId: teamId || (TEAMS[0] ? TEAMS[0].id : ''),
+      monthly: {},
+    });
+    this.saveExternal(all);
+    return id;
+  },
+  removeExternalItem(projectId, itemId) {
+    const all = this.allExternal();
+    if (!Array.isArray(all[projectId])) return;
+    all[projectId] = all[projectId].filter((x) => x.id !== itemId);
+    this.saveExternal(all);
+  },
+  updateExternalItem(projectId, itemId, patch) {
+    const all = this.allExternal();
+    const list = all[projectId];
+    if (!Array.isArray(list)) return;
+    const idx = list.findIndex((x) => x.id === itemId);
+    if (idx < 0) return;
+    list[idx] = Object.assign({}, list[idx], patch);
+    this.saveExternal(all);
+  },
+  setExternalMonthly(projectId, itemId, year, month, value) {
+    const all = this.allExternal();
+    const list = all[projectId];
+    if (!Array.isArray(list)) return;
+    const item = list.find((x) => x.id === itemId);
+    if (!item) return;
+    const monthly = Object.assign({}, item.monthly || {});
+    const k = `${year}-${month}`;
+    if (!value) delete monthly[k];
+    else monthly[k] = Number(value);
+    item.monthly = monthly;
+    this.saveExternal(all);
+  },
+  externalSumForTeam(projectId, teamId) {
+    let s = 0;
+    this.externalItems(projectId).forEach((item) => {
+      if (item.teamId !== teamId) return;
+      Object.values(item.monthly || {}).forEach((v) => { s += Number(v) || 0; });
+    });
+    return s;
+  },
+  externalSumForTeamMonth(projectId, teamId, year, month) {
+    const k = `${year}-${month}`;
+    let s = 0;
+    this.externalItems(projectId).forEach((item) => {
+      if (item.teamId !== teamId) return;
+      s += Number((item.monthly || {})[k]) || 0;
+    });
+    return s;
+  },
+  externalSumForMonth(projectId, year, month) {
+    const k = `${year}-${month}`;
+    let s = 0;
+    this.externalItems(projectId).forEach((item) => {
+      s += Number((item.monthly || {})[k]) || 0;
+    });
+    return s;
   },
 
   // 비용 페이지에 표시할 프로젝트 별 총합
@@ -256,29 +339,22 @@ const ProjectData = {
     return { 내부비용: internal, 외주비: external, 총비용: internal + external };
   },
 
-  // 프로젝트의 (year, month) 월별 비용 - 그 달 4주의 리소스를 기준으로 계산
-  // - 내부비용 = (kind=='내부') ? 월별 리소스 × 단가 : 0
-  // - 외주비용 = externalCost(lump sum) × (월별 리소스 / 총 리소스)  비율 분배
-  // - 총비용 = 내부 + 외주
+  // 프로젝트의 (year, month) 월별 비용
+  // - 내부비용 = (kind=='내부') ? 그 달 4주의 리소스 × 단가 : 0
+  // - 외주비용 = 외주 항목의 그 달 입력값 합계 (사용자가 직접 월별로 입력)
   monthlyCostFor(projectId, year, month) {
     let internal = 0;
-    let external = 0;
     TEAMS.forEach((t) => {
       const r = this.withTeamId(projectId, t.id);
+      if (r.kind !== '내부') return;
       const monthRes = [1, 2, 3, 4].reduce((s, w) => {
         const k = `${year}-${month}-${w}`;
         return s + (Number((r.weeks || {})[k]) || 0);
       }, 0);
       if (monthRes <= 0) return;
-      const totalRes = this.rowResources(r);
-      if (r.kind === '내부') {
-        internal += monthRes * this.rowRate(r);
-      }
-      const ext = Number(r.externalCost) || 0;
-      if (totalRes > 0 && ext > 0) {
-        external += (monthRes / totalRes) * ext;
-      }
+      internal += monthRes * this.rowRate(r);
     });
+    const external = this.externalSumForMonth(projectId, year, month);
     return { internal, external, total: internal + external };
   },
 
