@@ -113,38 +113,103 @@ const SettlementPage = (function () {
     `;
   }
 
-  // 한 프로젝트(또는 본부 전체)에 대해 3행(내부/외주/청구) 출력
+  // 한 프로젝트(또는 본부 전체)에 대해 행들 출력 (3 fixed rows + N deposit rows + add row)
   function renderProjectBlock(label, projects, isHQ) {
+    const fixedKinds = ['내부비용', '외주비용', '청구금액'];
     const monthlyByKind = {};
-    KINDS.forEach((kind) => {
+    fixedKinds.forEach((kind) => {
       monthlyByKind[kind] = aggregateMonthly(projects, kind, filter.year);
     });
 
     const blockCls = isHQ ? 'block-hq' : 'block-project';
 
-    const rows = KINDS.map((kind, i) => {
+    // 입금 데이터 결정
+    let deposits = [];
+    let aggregateDepositMonthly = null;
+    if (isHQ) {
+      // 본부: 모든 프로젝트의 입금 합계 (단일 row)
+      aggregateDepositMonthly = MONTHS.map((m) =>
+        SettlementData.depositSumForProjectsMonth(projects, filter.year, m)
+      );
+    } else {
+      deposits = SettlementData.depositsFor(projects[0].id);
+    }
+
+    const totalRows = fixedKinds.length
+      + (isHQ ? 1 : deposits.length + 1); // +1 for "+ 입금처 추가" row
+
+    let html = '';
+
+    // 3 fixed rows: 내부비용 / 외주비용 / 청구금액
+    fixedKinds.forEach((kind, i) => {
       const monthly = monthlyByKind[kind];
       const total = sumArr(monthly);
-      const startCls = i === 0 ? ' row-block-start' : '';
-      const endCls = i === KINDS.length - 1 ? ' row-block-end' : '';
-      const projectCell = i === 0
-        ? `<td rowspan="${KINDS.length}" class="col-project ${blockCls}">${escapeHtml(label)}</td>`
+      const isFirstRow = i === 0;
+      const startCls = isFirstRow ? ' row-block-start' : '';
+      const projectCell = isFirstRow
+        ? `<td rowspan="${totalRows}" class="col-project ${blockCls}">${escapeHtml(label)}</td>`
         : '';
       const kindCls = `kind-${kindKey(kind)}`;
       const monthCells = monthly.map(
         (v) => `<td class="num">${formatNumber(Math.round(v), { zeroAsBlank: true })}</td>`
       ).join('');
-      return `
-        <tr class="${blockCls}${startCls}${endCls}">
+      html += `
+        <tr class="${blockCls}${startCls}">
           ${projectCell}
           <td class="col-kind ${kindCls}">${kind}</td>
           ${monthCells}
           <td class="num col-total">${formatNumber(Math.round(total), { zeroAsBlank: true })}</td>
         </tr>
       `;
-    }).join('');
+    });
 
-    return rows;
+    // 입금 rows
+    if (isHQ) {
+      const total = sumArr(aggregateDepositMonthly);
+      const monthCells = aggregateDepositMonthly.map(
+        (v) => `<td class="num">${formatNumber(Math.round(v), { zeroAsBlank: true })}</td>`
+      ).join('');
+      html += `
+        <tr class="${blockCls} row-block-end">
+          <td class="col-kind kind-deposit">입금 합계</td>
+          ${monthCells}
+          <td class="num col-total">${formatNumber(Math.round(total), { zeroAsBlank: true })}</td>
+        </tr>
+      `;
+    } else {
+      const projectId = projects[0].id;
+      // 각 입금처 row (편집 가능)
+      deposits.forEach((d) => {
+        const monthlyArr = MONTHS.map((m) => Number((d.monthly || {})[`${filter.year}-${m}`]) || 0);
+        const totalDep = sumArr(monthlyArr);
+        const monthCells = monthlyArr.map((v, mi) => {
+          const month = MONTHS[mi];
+          const display = v ? formatNumber(v) : '';
+          return `<td class="num"><input class="dep-month-input" type="text" data-action="dep-month" data-project="${projectId}" data-id="${d.id}" data-year="${filter.year}" data-month="${month}" value="${display}" placeholder=""/></td>`;
+        }).join('');
+        html += `
+          <tr class="${blockCls} row-deposit">
+            <td class="col-kind kind-deposit">
+              <span class="dep-prefix">입금:</span>
+              <input class="dep-payer-input" type="text" data-action="dep-payer" data-project="${projectId}" data-id="${d.id}" value="${escapeHtml(d.payer || '')}" placeholder="입금처" />
+              <button class="btn-dep-del" type="button" data-action="dep-del" data-project="${projectId}" data-id="${d.id}" title="입금처 삭제">×</button>
+            </td>
+            ${monthCells}
+            <td class="num col-total">${formatNumber(Math.round(totalDep), { zeroAsBlank: true })}</td>
+          </tr>
+        `;
+      });
+      // "+ 입금처 추가" row
+      html += `
+        <tr class="${blockCls} row-block-end row-deposit-add">
+          <td class="col-kind kind-deposit-add" colspan="${MONTHS.length + 2}">
+            <button class="btn-dep-add" type="button" data-action="dep-add" data-project="${projectId}">+ 입금처 추가</button>
+          </td>
+        </tr>
+      `;
+    }
+
+    return html;
   }
 
   function kindKey(kind) {
@@ -167,6 +232,45 @@ const SettlementPage = (function () {
 
     const printBtn = mountEl.querySelector('#s-print');
     if (printBtn) printBtn.addEventListener('click', () => window.print());
+
+    // 입금처 추가
+    mountEl.querySelectorAll('[data-action="dep-add"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        SettlementData.addDeposit(btn.dataset.project, '');
+        render();
+      });
+    });
+
+    // 입금처 삭제
+    mountEl.querySelectorAll('[data-action="dep-del"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!confirm('이 입금처를 삭제할까요?')) return;
+        SettlementData.removeDeposit(btn.dataset.project, btn.dataset.id);
+        render();
+      });
+    });
+
+    // 입금처 이름 편집 (재렌더 불필요)
+    mountEl.querySelectorAll('[data-action="dep-payer"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        SettlementData.updateDepositPayer(input.dataset.project, input.dataset.id, input.value);
+      });
+    });
+
+    // 월별 입금액 편집
+    mountEl.querySelectorAll('[data-action="dep-month"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const num = parseNumber(input.value);
+        SettlementData.setDepositMonthly(
+          input.dataset.project,
+          input.dataset.id,
+          Number(input.dataset.year),
+          Number(input.dataset.month),
+          num
+        );
+        render();
+      });
+    });
   }
 
   function exportCSV() {
@@ -183,6 +287,11 @@ const SettlementPage = (function () {
       const total = sumArr(monthly);
       lines.push(['본부 전체', kind, ...monthly, total].join(','));
     });
+    // 본부 전체 입금 합계
+    const hqDepMonthly = MONTHS.map((m) =>
+      Math.round(SettlementData.depositSumForProjectsMonth(projects, filter.year, m))
+    );
+    lines.push(['본부 전체', '입금 합계', ...hqDepMonthly, sumArr(hqDepMonthly)].join(','));
 
     // 프로젝트별
     projects.forEach((p) => {
@@ -190,6 +299,13 @@ const SettlementPage = (function () {
         const monthly = monthlyArrayFor(p.id, kind, filter.year).map((v) => Math.round(v));
         const total = sumArr(monthly);
         lines.push([csvCell(p.name), kind, ...monthly, total].join(','));
+      });
+      // 프로젝트의 입금처별 행
+      const deposits = SettlementData.depositsFor(p.id);
+      deposits.forEach((d) => {
+        const monthly = MONTHS.map((m) => Math.round(Number((d.monthly || {})[`${filter.year}-${m}`]) || 0));
+        const label = '입금: ' + (d.payer || '(미지정)');
+        lines.push([csvCell(p.name), csvCell(label), ...monthly, sumArr(monthly)].join(','));
       });
     });
 

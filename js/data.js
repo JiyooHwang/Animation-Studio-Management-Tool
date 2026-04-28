@@ -406,6 +406,89 @@ const CostData = {
   },
 };
 
+// 결산 데이터 - 프로젝트별 월별 입금 (다수의 입금처)
+const SettlementData = {
+  STORE_DEPOSITS: 'settlement.deposits.v1',
+  // { [projectId]: [ { id, payer, monthly: {YYYY-M: amount} } ] }
+
+  allDeposits() {
+    const data = Store.read(this.STORE_DEPOSITS, {});
+    return data && typeof data === 'object' ? data : {};
+  },
+
+  depositsFor(projectId) {
+    const all = this.allDeposits();
+    return Array.isArray(all[projectId]) ? all[projectId] : [];
+  },
+
+  saveDeposits(all) {
+    Store.write(this.STORE_DEPOSITS, all);
+  },
+
+  addDeposit(projectId, payer) {
+    const all = this.allDeposits();
+    if (!Array.isArray(all[projectId])) all[projectId] = [];
+    const id = 'dep_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    all[projectId].push({
+      id,
+      payer: payer || '',
+      monthly: {},
+    });
+    this.saveDeposits(all);
+    return id;
+  },
+
+  removeDeposit(projectId, depId) {
+    const all = this.allDeposits();
+    if (!Array.isArray(all[projectId])) return;
+    all[projectId] = all[projectId].filter((d) => d.id !== depId);
+    this.saveDeposits(all);
+  },
+
+  updateDepositPayer(projectId, depId, payer) {
+    const all = this.allDeposits();
+    const list = all[projectId];
+    if (!Array.isArray(list)) return;
+    const item = list.find((d) => d.id === depId);
+    if (!item) return;
+    item.payer = payer || '';
+    this.saveDeposits(all);
+  },
+
+  setDepositMonthly(projectId, depId, year, month, value) {
+    const all = this.allDeposits();
+    const list = all[projectId];
+    if (!Array.isArray(list)) return;
+    const item = list.find((d) => d.id === depId);
+    if (!item) return;
+    const monthly = Object.assign({}, item.monthly || {});
+    const k = `${year}-${month}`;
+    if (!value) delete monthly[k];
+    else monthly[k] = Number(value);
+    item.monthly = monthly;
+    this.saveDeposits(all);
+  },
+
+  // 특정 프로젝트의 (year, month) 입금 합계 (모든 입금처 합)
+  depositSumForProjectMonth(projectId, year, month) {
+    const k = `${year}-${month}`;
+    let s = 0;
+    this.depositsFor(projectId).forEach((d) => {
+      s += Number((d.monthly || {})[k]) || 0;
+    });
+    return s;
+  },
+
+  // 여러 프로젝트의 (year, month) 입금 합계 (본부 전체용)
+  depositSumForProjectsMonth(projects, year, month) {
+    let s = 0;
+    projects.forEach((p) => {
+      s += this.depositSumForProjectMonth(p.id, year, month);
+    });
+    return s;
+  },
+};
+
 // 본부인원(roster) 헬퍼 - 인원 페이지가 팀별 가용 인원을 derive
 const RosterData = {
   STORE_LIST: 'roster.list.v1',

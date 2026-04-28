@@ -107,6 +107,92 @@
   background: #ddd6fe;
   color: #5b21b6;
 }
+.settlement-table .kind-deposit {
+  background: #d1fae5;
+  color: #065f46;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+}
+.settlement-table .row-deposit td.kind-deposit { display: table-cell; }
+.settlement-table tr.row-deposit .kind-deposit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 200px;
+}
+.settlement-table .dep-prefix {
+  font-weight: 700;
+  color: #065f46;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.settlement-table .dep-payer-input {
+  flex: 1;
+  border: 1px solid #6ee7b7;
+  background: #fff;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  border-radius: 3px;
+  min-width: 80px;
+}
+.settlement-table .dep-payer-input:focus {
+  outline: none;
+  border-color: #059669;
+}
+.settlement-table .dep-month-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: right;
+  font-family: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 4px;
+  color: inherit;
+}
+.settlement-table .dep-month-input:focus {
+  outline: 1.5px solid #059669;
+  background: #fff;
+}
+.settlement-table .btn-dep-del {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.settlement-table .btn-dep-del:hover {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
+}
+.settlement-table tr.row-deposit-add td {
+  background: #ecfdf5;
+  text-align: center;
+  padding: 6px;
+}
+.settlement-table .btn-dep-add {
+  border: 1px dashed #059669;
+  background: #fff;
+  color: #065f46;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.settlement-table .btn-dep-add:hover {
+  background: #059669;
+  color: #fff;
+  border-style: solid;
+}
+.settlement-table tr.block-hq td.kind-deposit { background: #d1fae5; }
 
 .settlement-table td.num {
   text-align: right;
