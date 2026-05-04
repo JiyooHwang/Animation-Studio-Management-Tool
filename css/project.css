@@ -347,15 +347,41 @@
 }
 .proj-kind-select:focus { outline: 1.5px solid var(--primary); }
 
-.btn-row-del {
-  border: none;
+.btn-row-del,
+.btn-row-add {
+  border: 1px solid transparent;
   background: transparent;
   color: var(--text-dim);
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   padding: 0 4px;
+  border-radius: 3px;
+  font-family: inherit;
+  line-height: 1;
 }
-.btn-row-del:hover { color: var(--danger); }
+.btn-row-del:hover { color: #fff; background: var(--danger); border-color: var(--danger); }
+.btn-row-add {
+  color: #fff;
+  background: var(--primary);
+  border-color: var(--primary);
+  font-weight: 700;
+  margin-left: 2px;
+  padding: 1px 6px;
+}
+.btn-row-add:hover { filter: brightness(1.1); }
+
+/* 서브 행: 같은 팀의 두 번째 이상 행은 위쪽 보더가 점선이 되어 시각적으로 묶임 */
+.project-table tbody tr.row-sub > td {
+  border-top: 1px dashed #c8c8c8;
+}
+.project-table tbody tr.row-sub > td.col-role-sub {
+  /* 색은 유지하되 텍스트가 비어있어 시각적으로 같은 역할의 연장선임을 표현 */
+  border-top: 1px dashed rgba(255, 255, 255, 0.5);
+}
+/* 같은 팀의 마지막 행 아래는 굵은 구분선 */
+.project-table tbody tr.row-last > td {
+  border-bottom: 2px solid var(--line-strong, #999);
+}
 
 .empty-rows-note {
   padding: 24px;

@@ -156,32 +156,57 @@ const Projects = {
 // 프로젝트 페이지 행 데이터 + 집계 helper
 // 비용 페이지(총비용/내부비용/외주비), 인원 페이지(주별 리소스합) 모두 여기서 derive
 //
-// 데이터 모델 v2: 각 프로젝트가 팀별 1행을 고정 보유
-//   { [projectId]: { [teamId]: { kind: '내부'|'외주', weeks: {key: n}, rateOverride?, externalCost? } } }
+// 데이터 모델 v3: 한 팀이 여러 행을 가질 수 있음 (각 행이 개별 분류/리소스/단가)
+//   { [projectId]: { [teamId]: [ { id, kind: '내부'|'외주', weeks: {key: n}, rateOverride? }, ... ] } }
 const ProjectData = {
-  STORE_ROWS: 'project.rows.v2',
-  STORE_ROWS_LEGACY: 'project.rows.v1',
+  STORE_ROWS: 'project.rows.v3',
+  STORE_ROWS_V2_LEGACY: 'project.rows.v2',
+  STORE_ROWS_V1_LEGACY: 'project.rows.v1',
 
-  // 모든 프로젝트의 행 데이터 (team-id로 키된 맵)
+  _makeRowId() {
+    return 'r_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+  },
+
+  // 모든 프로젝트의 행 데이터 (team-id → row[] 맵)
   allRows() {
     let stored = Store.read(this.STORE_ROWS, null);
     if (stored) return stored;
-    // v1(배열) → v2(team-id 맵) 마이그레이션
-    const legacy = Store.read(this.STORE_ROWS_LEGACY, null);
+    // v2(team-id → 단일 row) → v3(team-id → row[]) 마이그레이션
+    const v2 = Store.read(this.STORE_ROWS_V2_LEGACY, null);
+    if (v2 && typeof v2 === 'object') {
+      const out = {};
+      Object.entries(v2).forEach(([pid, teams]) => {
+        const map = {};
+        Object.entries(teams || {}).forEach(([teamId, row]) => {
+          if (!row) return;
+          map[teamId] = [{
+            id: this._makeRowId(),
+            kind: row.kind || '내부',
+            weeks: row.weeks || {},
+            rateOverride: row.rateOverride,
+          }];
+        });
+        out[pid] = map;
+      });
+      Store.write(this.STORE_ROWS, out);
+      return out;
+    }
+    // v1(배열) → v3 마이그레이션
+    const v1 = Store.read(this.STORE_ROWS_V1_LEGACY, null);
     const out = {};
-    if (legacy && typeof legacy === 'object') {
-      Object.entries(legacy).forEach(([pid, rows]) => {
+    if (v1 && typeof v1 === 'object') {
+      Object.entries(v1).forEach(([pid, rows]) => {
         const map = {};
         if (Array.isArray(rows)) {
           rows.forEach((r) => {
             if (!r || !r.teamId) return;
-            if (map[r.teamId]) return; // 중복 시 첫 번째 행 유지
-            map[r.teamId] = {
+            if (!map[r.teamId]) map[r.teamId] = [];
+            map[r.teamId].push({
+              id: this._makeRowId(),
               kind: r.kind || '내부',
               weeks: r.weeks || {},
               rateOverride: r.rateOverride,
-              externalCost: (r.kind === '외주' && r.manualCost) ? Number(r.manualCost) || 0 : 0,
-            };
+            });
           });
         }
         out[pid] = map;
@@ -195,19 +220,103 @@ const ProjectData = {
     Store.write(this.STORE_ROWS, all);
   },
 
-  // 프로젝트의 팀별 행 조회 (없으면 default)
-  rowFor(projectId, teamId) {
+  // 프로젝트 팀의 행 배열 (저장된 게 없으면 default 1행 가상 반환)
+  rowsFor(projectId, teamId) {
     const all = this.allRows();
     const projRows = all[projectId] || {};
-    return projRows[teamId] || { kind: '내부', weeks: {}, rateOverride: undefined, externalCost: 0 };
+    const list = projRows[teamId];
+    if (Array.isArray(list) && list.length > 0) return list;
+    return [{ id: '_default_' + teamId, kind: '내부', weeks: {}, rateOverride: undefined, _virtual: true }];
   },
 
-  // 단일 행 업데이트
-  setRow(projectId, teamId, patch) {
+  // 팀의 첫 번째 행 (legacy compat용)
+  rowFor(projectId, teamId) {
+    return this.rowsFor(projectId, teamId)[0];
+  },
+
+  // 행 추가 (없던 팀이면 자동 생성)
+  addRow(projectId, teamId, kind) {
     const all = this.allRows();
     if (!all[projectId]) all[projectId] = {};
-    const cur = all[projectId][teamId] || { kind: '내부', weeks: {}, externalCost: 0 };
-    all[projectId][teamId] = Object.assign({}, cur, patch);
+    if (!Array.isArray(all[projectId][teamId])) {
+      // 가상 default를 실체화
+      all[projectId][teamId] = [{
+        id: this._makeRowId(),
+        kind: '내부',
+        weeks: {},
+        rateOverride: undefined,
+      }];
+    }
+    const id = this._makeRowId();
+    all[projectId][teamId].push({
+      id,
+      kind: kind || '내부',
+      weeks: {},
+      rateOverride: undefined,
+    });
+    this.saveAllRows(all);
+    return id;
+  },
+
+  // 행 삭제 (마지막 한 행은 남김)
+  removeRow(projectId, teamId, rowId) {
+    const all = this.allRows();
+    if (!all[projectId] || !Array.isArray(all[projectId][teamId])) return;
+    const list = all[projectId][teamId];
+    if (list.length <= 1) return;
+    all[projectId][teamId] = list.filter((r) => r.id !== rowId);
+    this.saveAllRows(all);
+  },
+
+  // 특정 행 필드 업데이트
+  updateRow(projectId, teamId, rowId, patch) {
+    const all = this.allRows();
+    if (!all[projectId]) all[projectId] = {};
+    if (!Array.isArray(all[projectId][teamId]) || all[projectId][teamId].length === 0) {
+      // 가상 default일 가능성: 실체화 후 patch 반영
+      all[projectId][teamId] = [Object.assign({
+        id: rowId && !rowId.startsWith('_default_') ? rowId : this._makeRowId(),
+        kind: '내부',
+        weeks: {},
+        rateOverride: undefined,
+      }, patch)];
+      this.saveAllRows(all);
+      return;
+    }
+    const list = all[projectId][teamId];
+    let idx = list.findIndex((r) => r.id === rowId);
+    if (idx < 0) {
+      // virtual default를 patch 적용해서 새 행으로 저장
+      if (rowId && rowId.startsWith('_default_')) {
+        list[0] = Object.assign({}, list[0], patch);
+        this.saveAllRows(all);
+      }
+      return;
+    }
+    list[idx] = Object.assign({}, list[idx], patch);
+    this.saveAllRows(all);
+  },
+
+  // 특정 행의 한 주 값 set
+  setRowWeek(projectId, teamId, rowId, year, month, week, value) {
+    const all = this.allRows();
+    if (!all[projectId]) all[projectId] = {};
+    if (!Array.isArray(all[projectId][teamId]) || all[projectId][teamId].length === 0) {
+      all[projectId][teamId] = [{
+        id: (rowId && !rowId.startsWith('_default_')) ? rowId : this._makeRowId(),
+        kind: '내부',
+        weeks: {},
+        rateOverride: undefined,
+      }];
+    }
+    const list = all[projectId][teamId];
+    const item = list.find((r) => r.id === rowId) || list[0];
+    if (!item) return;
+    const weeks = Object.assign({}, item.weeks || {});
+    const k = `${year}-${month}-${week}`;
+    if (!value) delete weeks[k];
+    else weeks[k] = Number(value);
+    item.weeks = weeks;
     this.saveAllRows(all);
   },
 
@@ -222,30 +331,34 @@ const ProjectData = {
     if (row && row.rateOverride !== undefined && row.rateOverride !== null && row.rateOverride !== '') {
       return Number(row.rateOverride) || 0;
     }
-    // teamId는 row 객체에 직접 들어있지 않음 — 호출자가 알고 있어야 함
     return Projects.rateFor(row && row._teamId);
   },
 
-  // teamId를 행에 주입한 형태로 조회 (rowRate 계산을 위해)
-  withTeamId(projectId, teamId) {
-    const r = this.rowFor(projectId, teamId);
-    return Object.assign({ _teamId: teamId }, r);
-  },
-
-  // 내부비용 = (kind==내부일 때) resources × rate, 그 외엔 0
-  rowInternalCost(projectId, teamId) {
-    const r = this.withTeamId(projectId, teamId);
-    if (r.kind !== '내부') return 0;
+  // 한 행의 비용 (resources × rate)
+  rowCost(row, teamId) {
+    const r = Object.assign({ _teamId: teamId }, row);
     return this.rowResources(r) * this.rowRate(r);
   },
 
-  // 외주비용 = 그 팀의 외주 항목 월별 합계 (사용자가 추가하는 외주 행에서 derive)
-  // 만약 외주 항목이 없으면 legacy externalCost(lump sum) fallback
+  // 팀의 내부비용 = 내부 행들의 (resources × rate) 합
+  rowInternalCost(projectId, teamId) {
+    let s = 0;
+    this.rowsFor(projectId, teamId).forEach((row) => {
+      if (row.kind !== '내부') return;
+      s += this.rowCost(row, teamId);
+    });
+    return s;
+  },
+
+  // 팀의 외주비용 = 외주 행들의 (resources × rate) + 외주 항목 합
   rowExternalCost(projectId, teamId) {
-    const fromItems = this.externalSumForTeam(projectId, teamId);
-    if (fromItems > 0) return fromItems;
-    const r = this.rowFor(projectId, teamId);
-    return Number(r.externalCost) || 0;
+    let s = 0;
+    this.rowsFor(projectId, teamId).forEach((row) => {
+      if (row.kind !== '외주') return;
+      s += this.rowCost(row, teamId);
+    });
+    s += this.externalSumForTeam(projectId, teamId);
+    return s;
   },
 
   // === 외주 항목 (사용자가 행 추가, 팀 선택, 월별 입력) ===
@@ -340,25 +453,30 @@ const ProjectData = {
   },
 
   // 프로젝트의 (year, month) 월별 비용
-  // - 내부비용 = (kind=='내부') ? 그 달 4주의 리소스 × 단가 : 0
-  // - 외주비용 = 외주 항목의 그 달 입력값 합계 (사용자가 직접 월별로 입력)
+  // - 내부비용 = 내부 행들의 (그 달 4주 리소스 × 단가) 합
+  // - 외주비용 = 외주 행들의 (그 달 4주 리소스 × 단가) 합 + 외주 항목의 그 달 입력값 합
   monthlyCostFor(projectId, year, month) {
     let internal = 0;
+    let externalRows = 0;
     TEAMS.forEach((t) => {
-      const r = this.withTeamId(projectId, t.id);
-      if (r.kind !== '내부') return;
-      const monthRes = [1, 2, 3, 4].reduce((s, w) => {
-        const k = `${year}-${month}-${w}`;
-        return s + (Number((r.weeks || {})[k]) || 0);
-      }, 0);
-      if (monthRes <= 0) return;
-      internal += monthRes * this.rowRate(r);
+      this.rowsFor(projectId, t.id).forEach((row) => {
+        const r = Object.assign({ _teamId: t.id }, row);
+        const monthRes = [1, 2, 3, 4].reduce((s, w) => {
+          const k = `${year}-${month}-${w}`;
+          return s + (Number((r.weeks || {})[k]) || 0);
+        }, 0);
+        if (monthRes <= 0) return;
+        const cost = monthRes * this.rowRate(r);
+        if (row.kind === '내부') internal += cost;
+        else externalRows += cost;
+      });
     });
-    const external = this.externalSumForMonth(projectId, year, month);
+    const external = externalRows + this.externalSumForMonth(projectId, year, month);
     return { internal, external, total: internal + external };
   },
 
   // 인원 페이지의 (team, year, month, week) 셀 값 - projectFilter('ALL' | projectId) 적용
+  // 한 팀의 모든 행(내부+외주)의 그 주 리소스 합
   headcountFor(teamId, year, month, week, projectFilter) {
     const all = this.allRows();
     const key = `${year}-${month}-${week}`;
@@ -366,10 +484,12 @@ const ProjectData = {
     Object.entries(all).forEach(([pid, projRows]) => {
       if (projectFilter && projectFilter !== 'ALL' && pid !== projectFilter) return;
       if (!projRows || typeof projRows !== 'object') return;
-      const row = projRows[teamId];
-      if (!row) return;
-      const v = (row.weeks || {})[key];
-      if (v !== undefined && v !== null && v !== '') s += Number(v) || 0;
+      const list = projRows[teamId];
+      if (!Array.isArray(list)) return;
+      list.forEach((row) => {
+        const v = (row.weeks || {})[key];
+        if (v !== undefined && v !== null && v !== '') s += Number(v) || 0;
+      });
     });
     return s;
   },
