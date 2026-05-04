@@ -200,6 +200,15 @@ const ProjectPage = (function () {
     ).join('');
 
     const rates = Projects.getRates();
+    const animSeconds = state.projectId ? Projects.getAnimSeconds(state.projectId) : 0;
+    const animPersonWeeks = state.projectId
+      ? ProjectData.rowsFor(state.projectId, 'animation').reduce(
+          (s, r) => s + ProjectData.rowResources(r), 0)
+      : 0;
+    const secPerPersonWeek = animPersonWeeks > 0 ? (animSeconds / animPersonWeeks) : 0;
+    const secPerPersonWeekDisplay = (animSeconds && animPersonWeeks)
+      ? `${secPerPersonWeek.toFixed(2)} 초`
+      : '<span style="color:var(--text-faint);">분량/인원 입력 필요</span>';
 
     return `
       <div class="project-meta">
@@ -211,6 +220,14 @@ const ProjectPage = (function () {
           <div class="project-title-row" style="margin-top:6px;">
             <span class="label">제목</span>
             <input class="project-title-input" id="proj-title" type="text" value="${escapeHtml(projectName)}" placeholder="프로젝트 제목" />
+          </div>
+          <div class="anim-config" style="margin-top:10px;">
+            <label>애니메이션 분량 (초)</label>
+            <input id="anim-seconds" type="text" value="${animSeconds ? formatNumber(animSeconds) : ''}" placeholder="예: 1800" />
+            <label>애니메이션 총 인-주</label>
+            <span class="anim-readout">${animPersonWeeks ? formatNumber(animPersonWeeks) + ' 주' : '<span style="color:var(--text-faint);">애니메이션 행 리소스 미입력</span>'}</span>
+            <label>1인 주당 작업분량</label>
+            <span class="anim-readout anim-readout-emph">${secPerPersonWeekDisplay}</span>
           </div>
         </div>
         <div class="rate-config">
@@ -533,6 +550,12 @@ const ProjectPage = (function () {
       const r = Projects.getRates();
       r.standard = parseNumber(rateStandard.value);
       Projects.setRates(r);
+      render();
+    });
+
+    const animSec = mountEl.querySelector('#anim-seconds');
+    if (animSec) animSec.addEventListener('change', () => {
+      Projects.setAnimSeconds(state.projectId, parseNumber(animSec.value));
       render();
     });
 

@@ -44,6 +44,7 @@ const Projects = {
   STORE_LIST: 'projects.list.v1',     // [ { id, category, name } ]
   STORE_RATES: 'projects.rates.v1',
   STORE_NAMES_LEGACY: 'projects.names.v1', // 마이그레이션용
+  STORE_ANIM: 'projects.anim.v1',     // { [projectId]: { seconds: number } }
   DEFAULT_RATES: { exec: 3000000, premium: 2520000, standard: 2030000 },
 
   list() {
@@ -150,6 +151,26 @@ const Projects = {
     if (t && t.exec) return rates.exec;
     if (t && t.premium) return rates.premium;
     return rates.standard;
+  },
+
+  // 프로젝트별 애니메이션 분량 (총 초)
+  getAnimSeconds(projectId) {
+    if (!projectId) return 0;
+    const all = Store.read(this.STORE_ANIM, {}) || {};
+    const v = (all[projectId] || {}).seconds;
+    return Number(v) || 0;
+  },
+
+  setAnimSeconds(projectId, seconds) {
+    if (!projectId) return;
+    const all = Store.read(this.STORE_ANIM, {}) || {};
+    const num = Number(seconds);
+    if (!num) {
+      delete all[projectId];
+    } else {
+      all[projectId] = Object.assign({}, all[projectId], { seconds: num });
+    }
+    Store.write(this.STORE_ANIM, all);
   },
 };
 

@@ -109,6 +109,45 @@
 }
 .rate-config input:focus { outline: none; border-color: var(--primary); }
 
+/* 애니메이션 분량 / 1인 주당 작업분량 표시 */
+.anim-config {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+  max-width: 360px;
+}
+.anim-config label {
+  text-align: right;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.anim-config input {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 4px 6px;
+  width: 130px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  background: #fff;
+  font-family: inherit;
+}
+.anim-config input:focus { outline: none; border-color: var(--primary); }
+.anim-readout {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+.anim-readout-emph {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 13px;
+}
+
 .project-toolbar {
   display: flex;
   gap: 8px;
