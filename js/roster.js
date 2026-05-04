@@ -187,7 +187,10 @@ const RosterPage = (function () {
         <button class="btn ghost" id="r-remove-last" type="button">- 마지막 행 제거</button>
         <span style="font-size:11px; color:var(--text-dim); margin-left:6px;">💡 행 위에서 <strong>우클릭</strong>으로 위/아래 삽입 가능</span>
         <span class="spacer" style="flex:1;"></span>
-        <label style="font-size:11px; color:var(--text-dim);">시작</label>
+        <button class="btn" id="r-export" type="button" title="현재 본부 인원을 .xlsx 파일로 저장">⬇ 엑셀 다운로드</button>
+        <button class="btn" id="r-import" type="button" title="엑셀에서 본부 인원을 불러와 교체/추가">⬆ 엑셀 업로드</button>
+        <input type="file" id="r-import-file" accept=".xlsx,.xls" style="display:none" />
+        <label style="font-size:11px; color:var(--text-dim); margin-left:8px;">시작</label>
         <select id="r-start-year">${yearOpts}</select>
         <select id="r-start-month">${monthOpts}</select>
         <button class="btn" id="r-add-month" type="button">+ 한 달 추가</button>
@@ -368,6 +371,21 @@ const RosterPage = (function () {
       render();
     });
 
+    // 엑셀 다운로드/업로드
+    const exportBtn = mountEl.querySelector('#r-export');
+    if (exportBtn) exportBtn.addEventListener('click', exportToExcel);
+    const importBtn = mountEl.querySelector('#r-import');
+    const importFile = mountEl.querySelector('#r-import-file');
+    if (importBtn && importFile) {
+      importBtn.addEventListener('click', () => importFile.click());
+      importFile.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        importFromExcel(file);
+        importFile.value = '';
+      });
+    }
+
     // 행 삭제
     mountEl.querySelectorAll('[data-action="del"]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -495,6 +513,181 @@ const RosterPage = (function () {
 
   function hideContextMenu() {
     if (ctxMenu) ctxMenu.style.display = 'none';
+  }
+
+  // ===== 엑셀 다운로드 / 업로드 =====
+  // 현재 보이는 기간(periodMonths)의 모든 월을 컬럼으로 export
+  // 컬럼: 고용구분, 성명, 직책, 계약종료일, 휴직시작, 휴직종료, 팀, [YYYY-MM ...], 비고
+  function exportToExcel() {
+    if (typeof XLSX === 'undefined') {
+      alert('엑셀 라이브러리(XLSX)를 불러오지 못했습니다. 네트워크를 확인해주세요.');
+      return;
+    }
+    const months = periodMonths();
+    const headers = [
+      '고용구분', '성명', '직책', '계약종료일', '휴직시작', '휴직종료', '팀',
+      ...months.map((m) => `${m.year}-${pad(m.month)}`),
+      '비고',
+    ];
+    const rows = people.map((p) => {
+      const team = TEAMS.find((t) => t.id === p.teamId);
+      const teamName = team ? (team.name || team.role) : '';
+      const monthVals = months.map((m) => {
+        const v = (p.monthly || {})[monthKey(m.year, m.month)];
+        return (v === undefined || v === null || v === '') ? '' : Number(v);
+      });
+      return [
+        p.empType || '',
+        p.name || '',
+        p.position || '',
+        p.contractEnd || '',
+        p.leaveStart || '',
+        p.leaveEnd || '',
+        teamName,
+        ...monthVals,
+        p.note || '',
+      ];
+    });
+
+    const aoa = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    // 컬럼 폭 (대략)
+    ws['!cols'] = headers.map((h, i) => {
+      if (i === 1) return { wch: 12 };  // 성명
+      if (i === 6) return { wch: 22 };  // 팀
+      if (i === headers.length - 1) return { wch: 24 }; // 비고
+      if (i < 7) return { wch: 12 };
+      return { wch: 8 };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '본부인원');
+    const today = new Date();
+    const fname = `본부인원_${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}.xlsx`;
+    XLSX.writeFile(wb, fname);
+  }
+
+  function importFromExcel(file) {
+    if (typeof XLSX === 'undefined') {
+      alert('엑셀 라이브러리(XLSX)를 불러오지 못했습니다. 네트워크를 확인해주세요.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: 'array', cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        if (!ws) {
+          alert('시트를 찾을 수 없습니다.');
+          return;
+        }
+        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+        if (!aoa.length) {
+          alert('비어있는 시트입니다.');
+          return;
+        }
+        const headers = aoa[0].map((h) => String(h == null ? '' : h).trim());
+        const colOf = (name) => headers.findIndex((h) => h === name);
+        const cEmp = colOf('고용구분');
+        const cName = colOf('성명');
+        const cPos = colOf('직책');
+        const cContract = colOf('계약종료일');
+        const cLeaveS = colOf('휴직시작');
+        const cLeaveE = colOf('휴직종료');
+        const cTeam = colOf('팀');
+        const cNote = colOf('비고');
+        // 월 컬럼: "YYYY-M" 또는 "YYYY-MM" 또는 "YYYY.M(M)" 형식
+        const monthCols = [];
+        headers.forEach((h, i) => {
+          const m = String(h).match(/^(\d{4})[-.](\d{1,2})$/);
+          if (m) monthCols.push({ idx: i, year: Number(m[1]), month: Number(m[2]) });
+        });
+        if (cName < 0) {
+          alert('"성명" 컬럼을 찾지 못했습니다. 헤더 행이 첫 번째 행에 있고 컬럼명이 정확한지 확인해주세요.');
+          return;
+        }
+
+        // 팀 라벨 → teamId 맵
+        const teamLabelMap = {};
+        TEAMS.forEach((t) => {
+          if (t.name) teamLabelMap[t.name] = t.id;
+          if (t.role) teamLabelMap[t.role] = t.id;
+          teamLabelMap[(t.name || t.role)] = t.id;
+        });
+
+        const newPeople = [];
+        for (let r = 1; r < aoa.length; r++) {
+          const row = aoa[r];
+          if (!row || row.every((v) => v === '' || v === null || v === undefined)) continue;
+          const monthly = {};
+          monthCols.forEach(({ idx: ci, year, month }) => {
+            const v = row[ci];
+            if (v === '' || v === null || v === undefined) return;
+            const num = Number(v);
+            if (!isNaN(num)) monthly[`${year}-${month}`] = num;
+          });
+          const teamLabel = String(row[cTeam] == null ? '' : row[cTeam]).trim();
+          const teamId = teamLabelMap[teamLabel] || (TEAMS[0] ? TEAMS[0].id : '');
+          const empType = cEmp >= 0 ? (String(row[cEmp] || '').trim() || '정규직') : '정규직';
+          const position = cPos >= 0 ? (String(row[cPos] || '').trim() || '팀원') : '팀원';
+          newPeople.push({
+            id: 'emp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6) + '_' + r,
+            empType: EMP_TYPES.includes(empType) ? empType : '정규직',
+            name: cName >= 0 ? String(row[cName] == null ? '' : row[cName]).trim() : '',
+            position: POSITIONS.includes(position) ? position : '팀원',
+            contractEnd: cContract >= 0 ? cellAsDate(row[cContract]) : '',
+            leaveStart: cLeaveS >= 0 ? cellAsMonth(row[cLeaveS]) : '',
+            leaveEnd: cLeaveE >= 0 ? cellAsMonth(row[cLeaveE]) : '',
+            teamId,
+            monthly,
+            note: cNote >= 0 ? String(row[cNote] == null ? '' : row[cNote]).trim() : '',
+          });
+        }
+
+        if (newPeople.length === 0) {
+          alert('가져올 데이터 행이 없습니다.');
+          return;
+        }
+        const replace = confirm(
+          `엑셀에서 ${newPeople.length}건을 읽었습니다.\n\n[확인] 기존 인원을 모두 교체\n[취소] 기존 인원 뒤에 추가`
+        );
+        if (replace) {
+          people = newPeople;
+        } else {
+          people = people.concat(newPeople);
+        }
+        persist();
+        render();
+        alert(`엑셀 업로드 완료 (${newPeople.length}건 ${replace ? '교체' : '추가'})`);
+      } catch (err) {
+        console.error(err);
+        alert('엑셀 파싱 중 오류가 발생했습니다: ' + (err && err.message ? err.message : err));
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // 셀 → 'YYYY-MM-DD' (날짜 시리얼/Date/문자열 모두 처리)
+  function cellAsDate(v) {
+    if (v == null || v === '') return '';
+    if (v instanceof Date && !isNaN(v.getTime())) {
+      return `${v.getFullYear()}-${pad(v.getMonth() + 1)}-${pad(v.getDate())}`;
+    }
+    if (typeof v === 'number' && v > 0 && v < 100000) {
+      try {
+        const dc = XLSX.SSF.parse_date_code(v);
+        if (dc) return `${dc.y}-${pad(dc.m)}-${pad(dc.d)}`;
+      } catch (_) { /* noop */ }
+    }
+    return String(v).trim();
+  }
+
+  // 셀 → 'YYYY-MM'
+  function cellAsMonth(v) {
+    const s = cellAsDate(v);
+    const m = s.match(/^(\d{4})-(\d{2})/);
+    return m ? `${m[1]}-${m[2]}` : s;
   }
 
   function formatSum(n) {
