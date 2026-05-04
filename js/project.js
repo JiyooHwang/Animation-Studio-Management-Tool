@@ -437,15 +437,17 @@ const ProjectPage = (function () {
       ? `<button class="btn-row-del" type="button" data-action="row-del" data-team="${team.id}" data-row="${row.id}" title="이 행 삭제">×</button>`
       : '';
 
-    // 멀티 행이고 첫 번째 행이 아니면 역할 텍스트는 비우고 색만 유지 (시각적으로 묶이도록)
-    const roleLabel = isFirst ? escapeHtml(team.role) : '';
-    const roleClass = isFirst ? 'col-role' : 'col-role col-role-sub';
+    // 멀티 행이고 첫 번째 행이 아니면 역할 셀은 아예 그리지 않고 (첫 행의 rowspan으로 병합),
+    // 첫 행이면 rowCount만큼 rowspan
+    const roleCell = isFirst
+      ? `<td class="col-role" style="background:${color}; color:${textColor};" rowspan="${rowCount}">${escapeHtml(team.role)}</td>`
+      : '';
     const trClass = ['has-color', !isFirst ? 'row-sub' : '', isLast ? 'row-last' : ''].filter(Boolean).join(' ');
 
     return `
       <tr class="${trClass}" data-team="${team.id}" data-row="${row.id}">
         <td class="col-pct">${pct ? pct.toFixed(1) + '%' : ''}</td>
-        <td class="${roleClass}" style="background:${color}; color:${textColor};">${roleLabel}</td>
+        ${roleCell}
         <td class="col-kind">
           <select class="proj-kind-select" data-action="kind" data-team="${team.id}" data-row="${row.id}">
             <option value="내부" ${isInternal ? 'selected' : ''}>내부</option>

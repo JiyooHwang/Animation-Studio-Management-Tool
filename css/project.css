@@ -370,13 +370,10 @@
 }
 .btn-row-add:hover { filter: brightness(1.1); }
 
-/* 서브 행: 같은 팀의 두 번째 이상 행은 위쪽 보더가 점선이 되어 시각적으로 묶임 */
+/* 서브 행: 같은 팀의 두 번째 이상 행은 위쪽 보더가 점선이 되어 시각적으로 묶임
+   (역할 셀은 첫 행의 rowspan으로 병합되어 그려지므로 영향 없음) */
 .project-table tbody tr.row-sub > td {
   border-top: 1px dashed #c8c8c8;
-}
-.project-table tbody tr.row-sub > td.col-role-sub {
-  /* 색은 유지하되 텍스트가 비어있어 시각적으로 같은 역할의 연장선임을 표현 */
-  border-top: 1px dashed rgba(255, 255, 255, 0.5);
 }
 /* 같은 팀의 마지막 행 아래는 굵은 구분선 */
 .project-table tbody tr.row-last > td {
