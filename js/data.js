@@ -504,7 +504,7 @@ const ProjectData = {
   },
 
   // 인원 페이지의 (team, year, month, week) 셀 값 - projectFilter('ALL' | projectId) 적용
-  // 한 팀의 모든 행(내부+외주)의 그 주 리소스 합
+  // 한 팀의 내부 행만 카운트 (외주 행은 본부 인력이 아니므로 제외)
   headcountFor(teamId, year, month, week, projectFilter) {
     const all = this.allRows();
     const key = `${year}-${month}-${week}`;
@@ -515,6 +515,7 @@ const ProjectData = {
       const list = projRows[teamId];
       if (!Array.isArray(list)) return;
       list.forEach((row) => {
+        if (row.kind === '외주') return; // 외주는 카운팅 제외
         const v = (row.weeks || {})[key];
         if (v !== undefined && v !== null && v !== '') s += Number(v) || 0;
       });
