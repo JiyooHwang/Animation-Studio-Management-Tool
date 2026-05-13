@@ -319,3 +319,45 @@
   background: var(--line);
   margin: 4px 0;
 }
+
+/* ===== 뷰 모드 토글 (일 / 주 / 월) ===== */
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.view-toggle button {
+  border: none;
+  background: #fafafa;
+  padding: 4px 12px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  border-right: 1px solid var(--line);
+  color: var(--text-dim);
+}
+.view-toggle button:last-child { border-right: none; }
+.view-toggle button:hover { background: #f0f0f0; }
+.view-toggle button.active {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ===== 일/주 뷰 시 cell 크기 조정 ===== */
+.roster-table.view-week .col-month  { width: 24px; min-width: 24px; padding: 2px; }
+.roster-table.view-day .col-month   { width: 18px; min-width: 18px; padding: 1px; font-size: 10px; }
+.roster-table.view-day .sub-header,
+.roster-table.view-week .sub-header {
+  background: var(--row-header-sub);
+  color: var(--row-header-text);
+  font-weight: 400;
+  font-size: 9.5px;
+  padding: 2px 1px;
+  text-align: center;
+}
+
+/* 월/연도 경계 강조 */
+.roster-table th.month-end,
+.roster-table td.month-end { border-right: 2px solid #999; }
