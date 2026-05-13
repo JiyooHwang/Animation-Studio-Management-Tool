@@ -296,16 +296,39 @@ const ProjectPage = (function () {
             <input class="project-title-input" id="proj-title" type="text" value="${escapeHtml(projectName)}" placeholder="프로젝트 제목" />
           </div>
           <div class="anim-config" style="margin-top:10px;">
-            <label>총 분량 (초)</label>
-            <input id="proj-total-sec" type="text" value="${meta.totalSeconds ? formatNumber(meta.totalSeconds) : ''}" placeholder="예: 1800" />
-            <label>주당 애니메이션 제작 분량 (초)</label>
-            <input id="proj-sec-per-week" type="text" value="${meta.secondsPerWeek ? formatNumber(meta.secondsPerWeek) : ''}" placeholder="예: 10" />
-            <label>주당 라이팅&amp;렌더 제작 분량 (컷)</label>
-            <input id="proj-cuts-lighting" type="text" value="${meta.cutsPerWeekLighting ? formatNumber(meta.cutsPerWeekLighting) : ''}" placeholder="예: 5" />
-            <label>주당 FX 제작 분량 (컷)</label>
-            <input id="proj-cuts-fx" type="text" value="${meta.cutsPerWeekFx ? formatNumber(meta.cutsPerWeekFx) : ''}" placeholder="예: 5" />
-            <label>주당 Comp 제작 분량 (컷)</label>
-            <input id="proj-cuts-comp" type="text" value="${meta.cutsPerWeekComp ? formatNumber(meta.cutsPerWeekComp) : ''}" placeholder="예: 5" />
+            <div class="anim-row">
+              <span class="anim-label">총 제작분량</span>
+              <div class="anim-field">
+                <input id="proj-total-sec" type="text" value="${meta.totalSeconds ? formatNumber(meta.totalSeconds) : ''}" placeholder="0" />
+                <span class="anim-unit">초</span>
+              </div>
+              <div class="anim-field">
+                <input id="proj-total-min" type="text" value="${meta.totalSeconds ? formatNumber(Math.round(meta.totalSeconds / 60 * 100) / 100) : ''}" placeholder="0" />
+                <span class="anim-unit">분</span>
+              </div>
+            </div>
+            <div class="anim-row">
+              <div class="anim-field">
+                <span class="anim-label">주당 애니메이션 제작 분량</span>
+                <input id="proj-sec-per-week" type="text" value="${meta.secondsPerWeek ? formatNumber(meta.secondsPerWeek) : ''}" placeholder="0" />
+                <span class="anim-unit">초</span>
+              </div>
+              <div class="anim-field">
+                <span class="anim-label">주당 라이팅&amp;렌더 제작 분량</span>
+                <input id="proj-cuts-lighting" type="text" value="${meta.cutsPerWeekLighting ? formatNumber(meta.cutsPerWeekLighting) : ''}" placeholder="0" />
+                <span class="anim-unit">컷</span>
+              </div>
+              <div class="anim-field">
+                <span class="anim-label">주당 FX 제작 분량</span>
+                <input id="proj-cuts-fx" type="text" value="${meta.cutsPerWeekFx ? formatNumber(meta.cutsPerWeekFx) : ''}" placeholder="0" />
+                <span class="anim-unit">컷</span>
+              </div>
+              <div class="anim-field">
+                <span class="anim-label">주당 Comp 제작 분량</span>
+                <input id="proj-cuts-comp" type="text" value="${meta.cutsPerWeekComp ? formatNumber(meta.cutsPerWeekComp) : ''}" placeholder="0" />
+                <span class="anim-unit">컷</span>
+              </div>
+            </div>
           </div>
         </div>
         <div class="rate-config">
@@ -435,7 +458,7 @@ const ProjectPage = (function () {
         else totalWorkSec += res * perWeek * 3;
       });
     });
-    const totalWorkDisplay = totalWorkSec > 0 ? `${formatNumber(totalWorkSec)} 초` : '';
+    const totalWorkDisplay = totalWorkSec > 0 ? formatMinutes(totalWorkSec) : '';
 
     // 월별 비용 계산: 내부 행은 그 달 리소스 × 단가, 외주는 외주 항목 합 (단일 소스)
     const monthlyBreakdown = months.map((m) => {
@@ -555,14 +578,17 @@ const ProjectPage = (function () {
     }).join('');
 
     // 총작업분량: TEAM_WORK_UNITS 매핑이 있는 팀만 표시. 내부/외주 모두 카운트.
+    //   sec 단위 팀: resources × secondsPerWeek = 총 초
+    //   cut 단위 팀: resources × cutsPerWeek × 3 = 총 초 (1컷=3초)
+    //   최종 표기는 분/초 포맷 ("X분 Y초")
     let workDisplay = '';
     const teamUnit = TEAM_WORK_UNITS[team.id];
     if (teamUnit && resources > 0 && state.projectId) {
       const projMeta = Projects.getProjectMeta(state.projectId);
       const perWeek = projMeta[teamUnit.field] || 0;
       if (perWeek > 0) {
-        const v = resources * perWeek;
-        workDisplay = `${formatNumber(v)} ${teamUnit.unit === 'sec' ? '초' : '컷'}`;
+        const totalSec = teamUnit.unit === 'sec' ? resources * perWeek : resources * perWeek * 3;
+        workDisplay = formatMinutes(totalSec);
       }
     }
 
@@ -659,6 +685,12 @@ const ProjectPage = (function () {
     const totalSecEl = mountEl.querySelector('#proj-total-sec');
     if (totalSecEl) totalSecEl.addEventListener('change', () => {
       Projects.setProjectMeta(state.projectId, { totalSeconds: parseNumber(totalSecEl.value) });
+      render();
+    });
+    const totalMinEl = mountEl.querySelector('#proj-total-min');
+    if (totalMinEl) totalMinEl.addEventListener('change', () => {
+      const minutes = parseFloat(String(totalMinEl.value).replace(/[^0-9.\-]/g, '')) || 0;
+      Projects.setProjectMeta(state.projectId, { totalSeconds: Math.round(minutes * 60) });
       render();
     });
     const secPerWeekEl = mountEl.querySelector('#proj-sec-per-week');
@@ -951,6 +983,17 @@ const ProjectPage = (function () {
   }
 
   function pad(n) { return String(n).padStart(2, '0'); }
+
+  // 초 → "X분 Y초" 포맷 (m=0이면 "Y초", s=0이면 "X분")
+  function formatMinutes(seconds) {
+    const totalSec = Math.round(Number(seconds) || 0);
+    if (totalSec <= 0) return '';
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    if (m === 0) return `${s}초`;
+    if (s === 0) return `${formatNumber(m)}분`;
+    return `${formatNumber(m)}분 ${s}초`;
+  }
 
   function escapeHtml(s) {
     return String(s == null ? '' : s)

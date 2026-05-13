@@ -109,44 +109,50 @@
 }
 .rate-config input:focus { outline: none; border-color: var(--primary); }
 
-/* 애니메이션 분량 / 1인 주당 작업분량 표시 */
+/* 프로젝트 메타 - 총 제작분량 / 주당 제작 분량 가로 정렬 레이아웃 */
 .anim-config {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 6px 10px;
-  font-size: 12px;
-  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
   background: rgba(255, 255, 255, 0.55);
   border: 1px dashed var(--line);
   border-radius: 4px;
-  max-width: 360px;
+  font-size: 12px;
 }
-.anim-config label {
-  text-align: right;
-  color: var(--text-dim);
+.anim-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+.anim-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   white-space: nowrap;
+}
+.anim-label {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.anim-unit {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-left: 2px;
 }
 .anim-config input {
   border: 1px solid var(--line);
   border-radius: 3px;
   padding: 4px 6px;
-  width: 130px;
+  width: 80px;
   text-align: right;
   font-variant-numeric: tabular-nums;
   background: #fff;
   font-family: inherit;
-}
-.anim-config input:focus { outline: none; border-color: var(--primary); }
-.anim-readout {
-  font-variant-numeric: tabular-nums;
   font-size: 12px;
 }
-.anim-readout-emph {
-  font-weight: 700;
-  color: var(--primary);
-  font-size: 13px;
-}
+.anim-config input:focus { outline: none; border-color: var(--primary); }
 
 .project-toolbar {
   display: flex;
