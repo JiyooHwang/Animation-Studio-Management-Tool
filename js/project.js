@@ -30,6 +30,76 @@ const ProjectPage = (function () {
     versionsModalOpen: false,
   };
 
+  // 키보드 네비게이션 후 포커스 복원 대상 (render() 후 적용)
+  let postRenderFocus = null;
+  // 언두/리두 스냅샷 스택 (현재 프로젝트 기준)
+  let undoStack = [];
+  let redoStack = [];
+  const MAX_UNDO = 100;
+  let keyListenerAttached = false;
+
+  // === 언두/리두 ===
+  function recordUndo() {
+    if (!state.projectId) return;
+    try {
+      undoStack.push(ProjectVersions.captureSnapshot(state.projectId));
+      if (undoStack.length > MAX_UNDO) undoStack.shift();
+      redoStack = []; // 새 액션 시 redo 스택 초기화
+    } catch (_) { /* noop */ }
+  }
+
+  function applySnapshot(projectId, snap) {
+    if (!snap) return;
+    const allRows = ProjectData.allRows();
+    allRows[projectId] = snap.rows ? JSON.parse(JSON.stringify(snap.rows)) : {};
+    ProjectData.saveAllRows(allRows);
+    const allExt = ProjectData.allExternal();
+    allExt[projectId] = snap.externalItems ? JSON.parse(JSON.stringify(snap.externalItems)) : [];
+    Store.write(ProjectData.STORE_EXTERNAL, allExt);
+    if (snap.animMeta) {
+      Projects.setProjectMeta(projectId, {
+        totalSeconds: Number(snap.animMeta.totalSeconds) || 0,
+        secondsPerWeek: Number(snap.animMeta.secondsPerWeek) || 0,
+        cutsPerWeekLighting: Number(snap.animMeta.cutsPerWeekLighting) || 0,
+        cutsPerWeekFx: Number(snap.animMeta.cutsPerWeekFx) || 0,
+        cutsPerWeekComp: Number(snap.animMeta.cutsPerWeekComp) || 0,
+      });
+    }
+    if (snap.projectName) Projects.setName(projectId, snap.projectName);
+  }
+
+  function undo() {
+    if (!undoStack.length || !state.projectId) return;
+    const before = ProjectVersions.captureSnapshot(state.projectId);
+    const snap = undoStack.pop();
+    redoStack.push(before);
+    applySnapshot(state.projectId, snap);
+    render();
+  }
+
+  function redo() {
+    if (!redoStack.length || !state.projectId) return;
+    const before = ProjectVersions.captureSnapshot(state.projectId);
+    const snap = redoStack.pop();
+    undoStack.push(before);
+    applySnapshot(state.projectId, snap);
+    render();
+  }
+
+  function onGlobalKeyDown(e) {
+    // 프로젝트 탭이 활성일 때만 작동
+    if (!mountEl || !mountEl.classList.contains('active')) return;
+    const isMod = e.ctrlKey || e.metaKey;
+    if (!isMod) return;
+    if (e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+    } else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
+      e.preventDefault();
+      redo();
+    }
+  }
+
   function init(rootEl) {
     mountEl = rootEl;
     const sf = Store.read(STORE_FILTER, null);
@@ -43,6 +113,10 @@ const ProjectPage = (function () {
     if (!exists) {
       state.projectId = projects.length ? projects[0].id : null;
       persistFilter();
+    }
+    if (!keyListenerAttached) {
+      document.addEventListener('keydown', onGlobalKeyDown);
+      keyListenerAttached = true;
     }
     render();
   }
@@ -164,6 +238,18 @@ const ProjectPage = (function () {
     `;
 
     bindEvents();
+
+    // 키 네비게이션 후 포커스 복원
+    if (postRenderFocus) {
+      const f = postRenderFocus;
+      const sel = `td[data-week-cell="1"][data-team="${f.team}"][data-row="${f.row}"][data-year="${f.year}"][data-month="${f.month}"][data-week="${f.week}"] input.proj-row-input`;
+      const target = mountEl.querySelector(sel);
+      if (target) {
+        target.focus();
+        target.select();
+      }
+      postRenderFocus = null;
+    }
   }
 
   function renderVersionsModal() {
@@ -406,12 +492,16 @@ const ProjectPage = (function () {
     ).join('');
 
     const verCount = state.projectId ? ProjectVersions.list(state.projectId).length : 0;
+    const undoDisabled = undoStack.length === 0 ? 'disabled' : '';
+    const redoDisabled = redoStack.length === 0 ? 'disabled' : '';
     return `
       <div class="project-toolbar">
         <button class="btn primary" id="proj-add-project" type="button">+ 프로젝트 추가</button>
         <button class="btn ghost" id="proj-del-project" type="button">현재 프로젝트 삭제</button>
         <button class="btn" id="proj-save-version" type="button" title="현재 상태를 새 버전으로 저장">📸 버전 저장</button>
         <button class="btn" id="proj-show-versions" type="button" title="저장된 버전 목록 보기 / 복구">📚 버전 목록 (${verCount})</button>
+        <button class="btn" id="proj-undo" type="button" title="되돌리기 (Ctrl+Z)" ${undoDisabled}>↶ 되돌리기</button>
+        <button class="btn" id="proj-redo" type="button" title="다시실행 (Ctrl+Shift+Z 또는 Ctrl+Y)" ${redoDisabled}>↷ 다시실행</button>
         <span class="spacer" style="flex:1;"></span>
         <label style="font-size:11px; color:var(--text-dim);">시작</label>
         <select id="proj-start-year">${yearOpts}</select>
@@ -692,6 +782,7 @@ const ProjectPage = (function () {
     const projSel = mountEl.querySelector('#proj-select');
     if (projSel) projSel.addEventListener('change', (e) => {
       state.projectId = e.target.value;
+      undoStack = []; redoStack = [];
       persistFilter();
       render();
     });
@@ -700,6 +791,7 @@ const ProjectPage = (function () {
     mountEl.querySelectorAll('[data-action="chip"]').forEach((btn) => {
       btn.addEventListener('click', () => {
         state.projectId = btn.dataset.id;
+        undoStack = []; redoStack = [];
         persistFilter();
         render();
       });
@@ -730,6 +822,12 @@ const ProjectPage = (function () {
       persistFilter();
       render();
     });
+
+    // 되돌리기 / 다시실행 (툴바)
+    const undoBtn = mountEl.querySelector('#proj-undo');
+    if (undoBtn) undoBtn.addEventListener('click', undo);
+    const redoBtn = mountEl.querySelector('#proj-redo');
+    if (redoBtn) redoBtn.addEventListener('click', redo);
 
     // 버전 저장 (툴바)
     const saveVerBtn = mountEl.querySelector('#proj-save-version');
@@ -802,6 +900,7 @@ const ProjectPage = (function () {
 
     const titleInput = mountEl.querySelector('#proj-title');
     if (titleInput) titleInput.addEventListener('change', () => {
+      recordUndo();
       Projects.setName(state.projectId, titleInput.value);
       render();
     });
@@ -809,32 +908,38 @@ const ProjectPage = (function () {
     // 프로젝트 메타: 총 분량 / 주당 애니메이션 / 주당 라이팅&렌더 / FX / Comp
     const totalSecEl = mountEl.querySelector('#proj-total-sec');
     if (totalSecEl) totalSecEl.addEventListener('change', () => {
+      recordUndo();
       Projects.setProjectMeta(state.projectId, { totalSeconds: parseNumber(totalSecEl.value) });
       render();
     });
     const totalMinEl = mountEl.querySelector('#proj-total-min');
     if (totalMinEl) totalMinEl.addEventListener('change', () => {
+      recordUndo();
       const minutes = parseFloat(String(totalMinEl.value).replace(/[^0-9.\-]/g, '')) || 0;
       Projects.setProjectMeta(state.projectId, { totalSeconds: Math.round(minutes * 60) });
       render();
     });
     const secPerWeekEl = mountEl.querySelector('#proj-sec-per-week');
     if (secPerWeekEl) secPerWeekEl.addEventListener('change', () => {
+      recordUndo();
       Projects.setProjectMeta(state.projectId, { secondsPerWeek: parseNumber(secPerWeekEl.value) });
       render();
     });
     const cutsLightingEl = mountEl.querySelector('#proj-cuts-lighting');
     if (cutsLightingEl) cutsLightingEl.addEventListener('change', () => {
+      recordUndo();
       Projects.setProjectMeta(state.projectId, { cutsPerWeekLighting: parseNumber(cutsLightingEl.value) });
       render();
     });
     const cutsFxEl = mountEl.querySelector('#proj-cuts-fx');
     if (cutsFxEl) cutsFxEl.addEventListener('change', () => {
+      recordUndo();
       Projects.setProjectMeta(state.projectId, { cutsPerWeekFx: parseNumber(cutsFxEl.value) });
       render();
     });
     const cutsCompEl = mountEl.querySelector('#proj-cuts-comp');
     if (cutsCompEl) cutsCompEl.addEventListener('change', () => {
+      recordUndo();
       Projects.setProjectMeta(state.projectId, { cutsPerWeekComp: parseNumber(cutsCompEl.value) });
       render();
     });
@@ -898,6 +1003,7 @@ const ProjectPage = (function () {
 
     mountEl.querySelectorAll('[data-action="kind"]').forEach((sel) => {
       sel.addEventListener('change', () => {
+        recordUndo();
         const teamId = sel.dataset.team;
         setRowField(teamId, sel.dataset.row, { kind: sel.value });
         // kind 변경 → 팀의 외주 행 구성이 바뀌므로 외주 항목 전체 재동기
@@ -912,6 +1018,10 @@ const ProjectPage = (function () {
         const rowId = input.dataset.row;
         const year = Number(input.dataset.year);
         const month = Number(input.dataset.month);
+        // 값이 바뀐 경우에만 undo 기록
+        const oldRow = ProjectData.rowsFor(state.projectId, teamId).find((r) => r.id === rowId);
+        const oldVal = oldRow ? Number((oldRow.weeks || {})[weekKey(year, month, Number(input.dataset.week))] || 0) : 0;
+        if (Number(num) !== oldVal) recordUndo();
         setWeek(teamId, rowId, year, month, Number(input.dataset.week), num);
         // 외주 행이면 그 달의 외주 항목 금액 자동 동기
         const row = ProjectData.rowsFor(state.projectId, teamId).find((r) => r.id === rowId);
@@ -924,6 +1034,7 @@ const ProjectPage = (function () {
     mountEl.querySelectorAll('[data-action="row-add"]').forEach((btn) => {
       btn.addEventListener('click', () => {
         if (!state.projectId) return;
+        recordUndo();
         ProjectData.addRow(state.projectId, btn.dataset.team, '외주');
         render();
       });
@@ -949,6 +1060,7 @@ const ProjectPage = (function () {
           : '이 행을 삭제할까요?';
         if (!confirm(confirmMsg)) return;
 
+        recordUndo();
         const wasExternal = rowToDel && rowToDel.kind === '외주';
         ProjectData.removeRow(state.projectId, teamId, rowId);
         if (willDeleteItems) {
@@ -962,15 +1074,18 @@ const ProjectPage = (function () {
     });
 
     bindDragFill();
+    bindCellNav();
 
     // 외주 항목 이벤트
     const extAddBtn = mountEl.querySelector('#ext-add');
     if (extAddBtn) extAddBtn.addEventListener('click', () => {
+      recordUndo();
       ProjectData.addExternalItem(state.projectId);
       render();
     });
     mountEl.querySelectorAll('[data-action="ext-team"]').forEach((sel) => {
       sel.addEventListener('change', () => {
+        recordUndo();
         // 변경 전 이전 팀 기록
         const itemId = sel.dataset.item;
         const prev = ProjectData.externalItems(state.projectId).find((x) => x.id === itemId);
@@ -986,6 +1101,7 @@ const ProjectPage = (function () {
     mountEl.querySelectorAll('[data-action="ext-month"]').forEach((input) => {
       input.addEventListener('change', () => {
         const num = parseNumber(input.value);
+        recordUndo();
         ProjectData.setExternalMonthly(
           state.projectId,
           input.dataset.item,
@@ -1001,6 +1117,7 @@ const ProjectPage = (function () {
     mountEl.querySelectorAll('[data-action="ext-del"]').forEach((btn) => {
       btn.addEventListener('click', () => {
         if (!confirm('이 외주 항목을 삭제할까요?')) return;
+        recordUndo();
         const itemId = btn.dataset.item;
         const item = ProjectData.externalItems(state.projectId).find((x) => x.id === itemId);
         const teamId = item ? item.teamId : null;
@@ -1018,6 +1135,82 @@ const ProjectPage = (function () {
   //   - 마우스가 셀 사이에 있어도 가장 가까운 셀에 스냅
   //   - 뒤로 드래그하면 범위 축소
   let drag = null;
+
+  // === 셀 키보드 네비게이션 (화살표 / Tab / Enter) ===
+  function bindCellNav() {
+    mountEl.querySelectorAll('.proj-row-input').forEach((input) => {
+      input.addEventListener('keydown', onCellKeyDown);
+    });
+  }
+
+  function onCellKeyDown(e) {
+    const input = e.currentTarget;
+    const td = input.closest('td[data-week-cell="1"]');
+    if (!td) return;
+
+    let dir = null;
+    if (e.key === 'Tab') dir = e.shiftKey ? 'left' : 'right';
+    else if (e.key === 'Enter') dir = 'down';
+    else if (e.key === 'ArrowDown') dir = 'down';
+    else if (e.key === 'ArrowUp') dir = 'up';
+    else if (e.key === 'ArrowLeft' && input.selectionStart === 0 && input.selectionEnd === 0) dir = 'left';
+    else if (e.key === 'ArrowRight' && input.selectionStart === input.value.length && input.selectionEnd === input.value.length) dir = 'right';
+    else return;
+
+    const target = findCellInDirection(td, dir);
+    e.preventDefault();
+    if (!target) return;
+
+    // 입력값 저장 (값이 바뀌었으면 undo 기록)
+    const teamId = input.dataset.team;
+    const rowId = input.dataset.row;
+    const year = Number(input.dataset.year);
+    const month = Number(input.dataset.month);
+    const week = Number(input.dataset.week);
+    const num = parseNumber(input.value);
+    const oldRow = ProjectData.rowsFor(state.projectId, teamId).find((r) => r.id === rowId);
+    const oldVal = oldRow ? Number((oldRow.weeks || {})[weekKey(year, month, week)] || 0) : 0;
+    if (Number(num) !== oldVal) {
+      recordUndo();
+      setWeek(teamId, rowId, year, month, week, num);
+      const row = ProjectData.rowsFor(state.projectId, teamId).find((r) => r.id === rowId);
+      if (row && row.kind === '외주') {
+        syncExternalItemFromTeam(teamId, year, month);
+      }
+    }
+
+    // 렌더 후 타겟 셀로 포커스
+    postRenderFocus = {
+      team: target.dataset.team,
+      row: target.dataset.row,
+      year: target.dataset.year,
+      month: target.dataset.month,
+      week: target.dataset.week,
+    };
+    render();
+  }
+
+  function findCellInDirection(td, dir) {
+    const tr = td.closest('tr');
+    if (!tr) return null;
+    if (dir === 'right' || dir === 'left') {
+      const cells = Array.from(tr.querySelectorAll('td[data-week-cell="1"]'));
+      const i = cells.indexOf(td);
+      return cells[dir === 'right' ? i + 1 : i - 1] || null;
+    }
+    // up/down: 같은 column index의 다른 row 셀
+    const tbody = tr.parentElement;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const colIdx = Array.from(tr.querySelectorAll('td[data-week-cell="1"]')).indexOf(td);
+    let ri = rows.indexOf(tr);
+    const step = dir === 'down' ? 1 : -1;
+    while (true) {
+      ri += step;
+      if (ri < 0 || ri >= rows.length) return null;
+      const cells = Array.from(rows[ri].querySelectorAll('td[data-week-cell="1"]'));
+      if (cells.length > colIdx) return cells[colIdx];
+    }
+  }
 
   function bindDragFill() {
     mountEl.querySelectorAll('[data-fill-handle="1"]').forEach((h) => {
@@ -1099,6 +1292,7 @@ const ProjectPage = (function () {
     const min = Math.min(drag.startIdx, drag.currentIdx);
     const max = Math.max(drag.startIdx, drag.currentIdx);
     const targets = drag.allCells.slice(min, max + 1);
+    if (targets.length > 1) recordUndo();
 
     // 한 번에 batch 적용
     const all = ProjectData.allRows();
