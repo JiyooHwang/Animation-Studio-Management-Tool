@@ -231,6 +231,17 @@
   text-align: right;
   background: #f8d7da;
 }
+/* 외주비용 칸: 내부비용과 색상 차이 (라이트 라벤더) */
+.project-table .col-cost.col-cost-external {
+  background: #e9d5ff;
+}
+.project-table thead .col-cost.col-cost-external {
+  background: #ddd6fe;
+}
+.project-table tfoot .col-cost.col-cost-external {
+  background: #c7b6fb;
+  font-weight: 700;
+}
 .project-table .col-cost-total {
   background: #fff7a8;
   font-weight: 600;

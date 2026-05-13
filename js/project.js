@@ -413,7 +413,7 @@ const ProjectPage = (function () {
       <th class="col-resource" rowspan="3">총작업분량</th>
       <th class="col-cost col-cost-total" rowspan="3">총비용</th>
       <th class="col-cost" rowspan="3">내부비용</th>
-      <th class="col-cost" rowspan="3">외주비용</th>
+      <th class="col-cost col-cost-external" rowspan="3">외주비용</th>
       <th class="col-actions" rowspan="3"></th>
     `;
 
@@ -502,7 +502,7 @@ const ProjectPage = (function () {
             <td class="col-resource" title="초 환산 합계 (1컷=3초)">${totalWorkDisplay}</td>
             <td class="col-cost col-cost-total">${formatNumber(totalCost, { zeroAsBlank: true })}</td>
             <td class="col-cost">${formatNumber(totalInternal, { zeroAsBlank: true })}</td>
-            <td class="col-cost">${formatNumber(totalExternal, { zeroAsBlank: true })}</td>
+            <td class="col-cost col-cost-external">${formatNumber(totalExternal, { zeroAsBlank: true })}</td>
             <td class="col-actions"></td>
             ${totalsWeek}
           </tr>
@@ -626,7 +626,7 @@ const ProjectPage = (function () {
         <td class="col-resource" title="${isInternal ? '리소스합 × 주당 제작 분량' : ''}">${workDisplay}</td>
         ${totalCell}
         <td class="col-cost" title="내부 행: 리소스합 × 단가">${formatNumber(internalCost, { zeroAsBlank: true })}</td>
-        <td class="col-cost" title="외주 행: 리소스합 × 단가${showExternalItemsHere ? ' + 하단 외주 항목 합계' : ''}">${formatNumber(externalCostDisplay, { zeroAsBlank: true })}</td>
+        <td class="col-cost col-cost-external" title="외주 행: 리소스합 × 단가${showExternalItemsHere ? ' + 하단 외주 항목 합계' : ''}">${formatNumber(externalCostDisplay, { zeroAsBlank: true })}</td>
         <td class="col-actions">${delBtn}${addBtn}</td>
         ${weekCells}
       </tr>
