@@ -159,18 +159,29 @@ const Projects = {
     this.setProjectMeta(projectId, { totalSeconds: Number(seconds) || 0 });
   },
 
-  // 프로젝트별 메타 정보 (총 분량 / 주당 애니메이션 / 주당 샷)
+  // 프로젝트별 메타 정보 (총 분량 / 주당 애니메이션 / 주당 컷 3종)
   //   - totalSeconds: 프로젝트 총 분량 (초)
   //   - secondsPerWeek: 1인이 주당 작업하는 애니메이션 분량 (초)
-  //   - cutsPerWeek: 1인이 주당 작업하는 샷 수 (컷, 1컷=3초)
+  //   - cutsPerWeekLighting: 1인 주당 라이팅&렌더 컷 수
+  //   - cutsPerWeekFx: 1인 주당 FX(이펙트/시뮬레이션/블렌더) 컷 수
+  //   - cutsPerWeekComp: 1인 주당 컴포지트 컷 수
   getProjectMeta(projectId) {
-    if (!projectId) return { totalSeconds: 0, secondsPerWeek: 0, cutsPerWeek: 0 };
+    if (!projectId) {
+      return {
+        totalSeconds: 0, secondsPerWeek: 0,
+        cutsPerWeekLighting: 0, cutsPerWeekFx: 0, cutsPerWeekComp: 0,
+      };
+    }
     const all = Store.read(this.STORE_ANIM, {}) || {};
     const m = all[projectId] || {};
+    // legacy cutsPerWeek 단일 필드를 3종에 모두 마이그레이션 (값 있으면 fallback)
+    const legacyCuts = Number(m.cutsPerWeek || 0);
     return {
       totalSeconds: Number(m.totalSeconds || m.seconds || 0),
       secondsPerWeek: Number(m.secondsPerWeek || 0),
-      cutsPerWeek: Number(m.cutsPerWeek || 0),
+      cutsPerWeekLighting: Number(m.cutsPerWeekLighting != null ? m.cutsPerWeekLighting : legacyCuts) || 0,
+      cutsPerWeekFx: Number(m.cutsPerWeekFx != null ? m.cutsPerWeekFx : legacyCuts) || 0,
+      cutsPerWeekComp: Number(m.cutsPerWeekComp != null ? m.cutsPerWeekComp : legacyCuts) || 0,
     };
   },
 

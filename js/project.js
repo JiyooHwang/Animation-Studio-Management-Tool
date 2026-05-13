@@ -10,16 +10,17 @@ const ProjectPage = (function () {
   const WEEKS_PER_MONTH = 4;
   const DEFAULT_PERIOD = { startYear: 2026, startMonth: 4, monthCount: 9 };
 
-  // 팀별 총작업분량 단위
-  //   sec(초): 애니메이션 / cut(컷): simulation, fx, blender, lighting, composite
+  // 팀별 총작업분량 단위 & 단가 필드 매핑
+  //   unit: 'sec' 초 / 'cut' 컷
+  //   field: getProjectMeta()의 필드명
   //   매핑에 없는 팀은 총작업분량 표기 안 함
   const TEAM_WORK_UNITS = {
-    animation: 'sec',
-    simulation: 'cut',
-    fx: 'cut',
-    blender: 'cut',
-    lighting: 'cut',
-    composite: 'cut',
+    animation: { unit: 'sec', field: 'secondsPerWeek' },
+    lighting:  { unit: 'cut', field: 'cutsPerWeekLighting' },
+    fx:        { unit: 'cut', field: 'cutsPerWeekFx' },
+    simulation:{ unit: 'cut', field: 'cutsPerWeekFx' },
+    blender:   { unit: 'cut', field: 'cutsPerWeekFx' },
+    composite: { unit: 'cut', field: 'cutsPerWeekComp' },
   };
 
   let mountEl = null;
@@ -299,8 +300,12 @@ const ProjectPage = (function () {
             <input id="proj-total-sec" type="text" value="${meta.totalSeconds ? formatNumber(meta.totalSeconds) : ''}" placeholder="예: 1800" />
             <label>주당 애니메이션 제작 분량 (초)</label>
             <input id="proj-sec-per-week" type="text" value="${meta.secondsPerWeek ? formatNumber(meta.secondsPerWeek) : ''}" placeholder="예: 10" />
-            <label>주당 샷 제작 분량 (컷)</label>
-            <input id="proj-cuts-per-week" type="text" value="${meta.cutsPerWeek ? formatNumber(meta.cutsPerWeek) : ''}" placeholder="예: 5 (1컷=3초)" />
+            <label>주당 라이팅&amp;렌더 제작 분량 (컷)</label>
+            <input id="proj-cuts-lighting" type="text" value="${meta.cutsPerWeekLighting ? formatNumber(meta.cutsPerWeekLighting) : ''}" placeholder="예: 5" />
+            <label>주당 FX 제작 분량 (컷)</label>
+            <input id="proj-cuts-fx" type="text" value="${meta.cutsPerWeekFx ? formatNumber(meta.cutsPerWeekFx) : ''}" placeholder="예: 5" />
+            <label>주당 Comp 제작 분량 (컷)</label>
+            <input id="proj-cuts-comp" type="text" value="${meta.cutsPerWeekComp ? formatNumber(meta.cutsPerWeekComp) : ''}" placeholder="예: 5" />
           </div>
         </div>
         <div class="rate-config">
@@ -413,19 +418,21 @@ const ProjectPage = (function () {
       }).join('');
     }).join('');
 
-    // 총작업분량 합계 (초로 환산, 1컷=3초): TEAM_WORK_UNITS 매핑이 있는 팀의 내부+외주 모두
+    // 총작업분량 합계 (초로 환산, 1컷=3초): 팀별 단가 필드 사용해 내부+외주 모두 합산
     const metaForTotal = state.projectId
       ? Projects.getProjectMeta(state.projectId)
-      : { secondsPerWeek: 0, cutsPerWeek: 0 };
+      : {};
     let totalWorkSec = 0;
     TEAMS.forEach((t) => {
       const u = TEAM_WORK_UNITS[t.id];
       if (!u) return;
+      const perWeek = metaForTotal[u.field] || 0;
+      if (perWeek <= 0) return;
       ProjectData.rowsFor(state.projectId, t.id).forEach((r) => {
         const res = ProjectData.rowResources(r);
         if (res <= 0) return;
-        if (u === 'sec') totalWorkSec += res * (metaForTotal.secondsPerWeek || 0);
-        else if (u === 'cut') totalWorkSec += res * (metaForTotal.cutsPerWeek || 0) * 3;
+        if (u.unit === 'sec') totalWorkSec += res * perWeek;
+        else totalWorkSec += res * perWeek * 3;
       });
     });
     const totalWorkDisplay = totalWorkSec > 0 ? `${formatNumber(totalWorkSec)} 초` : '';
@@ -548,18 +555,14 @@ const ProjectPage = (function () {
     }).join('');
 
     // 총작업분량: TEAM_WORK_UNITS 매핑이 있는 팀만 표시. 내부/외주 모두 카운트.
-    //   sec: 리소스합 × 주당 애니메이션 초
-    //   cut: 리소스합 × 주당 샷 컷
     let workDisplay = '';
-    const unit = TEAM_WORK_UNITS[team.id];
-    if (unit && resources > 0 && state.projectId) {
+    const teamUnit = TEAM_WORK_UNITS[team.id];
+    if (teamUnit && resources > 0 && state.projectId) {
       const projMeta = Projects.getProjectMeta(state.projectId);
-      if (unit === 'sec') {
-        const v = resources * (projMeta.secondsPerWeek || 0);
-        if (v > 0) workDisplay = `${formatNumber(v)} 초`;
-      } else if (unit === 'cut') {
-        const v = resources * (projMeta.cutsPerWeek || 0);
-        if (v > 0) workDisplay = `${formatNumber(v)} 컷`;
+      const perWeek = projMeta[teamUnit.field] || 0;
+      if (perWeek > 0) {
+        const v = resources * perWeek;
+        workDisplay = `${formatNumber(v)} ${teamUnit.unit === 'sec' ? '초' : '컷'}`;
       }
     }
 
@@ -652,7 +655,7 @@ const ProjectPage = (function () {
       render();
     });
 
-    // 프로젝트 메타: 총 분량 / 주당 애니메이션 제작 / 주당 샷 제작
+    // 프로젝트 메타: 총 분량 / 주당 애니메이션 / 주당 라이팅&렌더 / FX / Comp
     const totalSecEl = mountEl.querySelector('#proj-total-sec');
     if (totalSecEl) totalSecEl.addEventListener('change', () => {
       Projects.setProjectMeta(state.projectId, { totalSeconds: parseNumber(totalSecEl.value) });
@@ -663,9 +666,19 @@ const ProjectPage = (function () {
       Projects.setProjectMeta(state.projectId, { secondsPerWeek: parseNumber(secPerWeekEl.value) });
       render();
     });
-    const cutsPerWeekEl = mountEl.querySelector('#proj-cuts-per-week');
-    if (cutsPerWeekEl) cutsPerWeekEl.addEventListener('change', () => {
-      Projects.setProjectMeta(state.projectId, { cutsPerWeek: parseNumber(cutsPerWeekEl.value) });
+    const cutsLightingEl = mountEl.querySelector('#proj-cuts-lighting');
+    if (cutsLightingEl) cutsLightingEl.addEventListener('change', () => {
+      Projects.setProjectMeta(state.projectId, { cutsPerWeekLighting: parseNumber(cutsLightingEl.value) });
+      render();
+    });
+    const cutsFxEl = mountEl.querySelector('#proj-cuts-fx');
+    if (cutsFxEl) cutsFxEl.addEventListener('change', () => {
+      Projects.setProjectMeta(state.projectId, { cutsPerWeekFx: parseNumber(cutsFxEl.value) });
+      render();
+    });
+    const cutsCompEl = mountEl.querySelector('#proj-cuts-comp');
+    if (cutsCompEl) cutsCompEl.addEventListener('change', () => {
+      Projects.setProjectMeta(state.projectId, { cutsPerWeekComp: parseNumber(cutsCompEl.value) });
       render();
     });
 
