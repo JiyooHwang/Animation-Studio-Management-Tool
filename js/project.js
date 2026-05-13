@@ -27,6 +27,7 @@ const ProjectPage = (function () {
   let state = {
     projectId: null,
     period: Object.assign({}, DEFAULT_PERIOD),
+    versionsModalOpen: false,
   };
 
   function init(rootEl) {
@@ -159,9 +160,60 @@ const ProjectPage = (function () {
         ${renderTable(months)}
       </div>
       ${renderExternalSection(months)}
+      ${renderVersionsModal()}
     `;
 
     bindEvents();
+  }
+
+  function renderVersionsModal() {
+    if (!state.versionsModalOpen || !state.projectId) return '';
+    const versions = ProjectVersions.list(state.projectId);
+    const projName = Projects.getName(state.projectId);
+
+    const items = versions.length === 0
+      ? `<li class="ver-empty">저장된 버전이 없습니다. 위 입력 + 저장 버튼으로 첫 버전을 만들어보세요.</li>`
+      : versions.map((v) => `
+          <li class="ver-item">
+            <div class="ver-meta">
+              <input class="ver-name" type="text" data-action="ver-rename" data-id="${v.id}" value="${escapeHtml(v.name || '')}" placeholder="이름 없음 (클릭해서 입력)" />
+              <span class="ver-date">${formatVerDate(v.createdAt)}</span>
+            </div>
+            <div class="ver-actions">
+              <button class="btn small primary" type="button" data-action="ver-restore" data-id="${v.id}">복구</button>
+              <button class="btn small ghost" type="button" data-action="ver-delete" data-id="${v.id}">삭제</button>
+            </div>
+          </li>`).join('');
+
+    return `
+      <div class="ver-modal-overlay" id="ver-modal-overlay">
+        <div class="ver-modal" role="dialog" aria-modal="true">
+          <header class="ver-modal-header">
+            <h3>📚 버전 기록 — ${escapeHtml(projName)}</h3>
+            <button class="btn-close" type="button" id="ver-modal-close" aria-label="닫기">×</button>
+          </header>
+          <div class="ver-save-row">
+            <input id="ver-name-input" type="text" placeholder="버전 이름 (선택, 예: 1차 검토 / 6월 재조정)" />
+            <button class="btn primary" type="button" id="ver-save-now">+ 현재 상태 저장</button>
+          </div>
+          <ul class="ver-list">${items}</ul>
+          <footer class="ver-modal-footer">
+            <span class="ver-hint">💡 복구 시 현재 상태는 "복구 전 자동 백업" 버전으로 보존됩니다.</span>
+          </footer>
+        </div>
+      </div>
+    `;
+  }
+
+  function formatVerDate(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso || '';
+    const y = d.getFullYear();
+    const m = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mm = pad(d.getMinutes());
+    return `${y}.${m}.${dd} ${hh}:${mm}`;
   }
 
   // 외주 항목 섹션 - 사용자가 행 추가, 팀 선택, 월별 외주비 입력
@@ -353,10 +405,13 @@ const ProjectPage = (function () {
       (m) => `<option value="${m}" ${m === state.period.startMonth ? 'selected' : ''}>${m}월</option>`
     ).join('');
 
+    const verCount = state.projectId ? ProjectVersions.list(state.projectId).length : 0;
     return `
       <div class="project-toolbar">
         <button class="btn primary" id="proj-add-project" type="button">+ 프로젝트 추가</button>
         <button class="btn ghost" id="proj-del-project" type="button">현재 프로젝트 삭제</button>
+        <button class="btn" id="proj-save-version" type="button" title="현재 상태를 새 버전으로 저장">📸 버전 저장</button>
+        <button class="btn" id="proj-show-versions" type="button" title="저장된 버전 목록 보기 / 복구">📚 버전 목록 (${verCount})</button>
         <span class="spacer" style="flex:1;"></span>
         <label style="font-size:11px; color:var(--text-dim);">시작</label>
         <select id="proj-start-year">${yearOpts}</select>
@@ -674,6 +729,75 @@ const ProjectPage = (function () {
       state.projectId = list.length ? list[0].id : null;
       persistFilter();
       render();
+    });
+
+    // 버전 저장 (툴바)
+    const saveVerBtn = mountEl.querySelector('#proj-save-version');
+    if (saveVerBtn) saveVerBtn.addEventListener('click', () => {
+      if (!state.projectId) return;
+      const name = prompt('이 버전의 이름을 입력하세요 (선택사항, 비워두면 시간만 기록):', '');
+      if (name === null) return; // 취소
+      ProjectVersions.save(state.projectId, name);
+      render();
+    });
+
+    // 버전 목록 모달 열기
+    const showVerBtn = mountEl.querySelector('#proj-show-versions');
+    if (showVerBtn) showVerBtn.addEventListener('click', () => {
+      state.versionsModalOpen = true;
+      render();
+    });
+
+    // 모달 닫기 (× 또는 배경 클릭)
+    const verClose = mountEl.querySelector('#ver-modal-close');
+    if (verClose) verClose.addEventListener('click', () => {
+      state.versionsModalOpen = false;
+      render();
+    });
+    const verOverlay = mountEl.querySelector('#ver-modal-overlay');
+    if (verOverlay) verOverlay.addEventListener('click', (e) => {
+      if (e.target === verOverlay) {
+        state.versionsModalOpen = false;
+        render();
+      }
+    });
+
+    // 모달 내부 "현재 상태 저장"
+    const verSaveNow = mountEl.querySelector('#ver-save-now');
+    if (verSaveNow) verSaveNow.addEventListener('click', () => {
+      if (!state.projectId) return;
+      const nameEl = mountEl.querySelector('#ver-name-input');
+      ProjectVersions.save(state.projectId, nameEl ? nameEl.value : '');
+      render();
+    });
+
+    // 버전 복구
+    mountEl.querySelectorAll('[data-action="ver-restore"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!state.projectId) return;
+        if (!confirm('이 버전으로 복구할까요?\n현재 상태는 자동으로 백업 버전으로 저장됩니다.')) return;
+        ProjectVersions.restore(state.projectId, btn.dataset.id, true);
+        state.versionsModalOpen = false;
+        render();
+      });
+    });
+
+    // 버전 삭제
+    mountEl.querySelectorAll('[data-action="ver-delete"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!state.projectId) return;
+        if (!confirm('이 버전을 삭제할까요?')) return;
+        ProjectVersions.remove(state.projectId, btn.dataset.id);
+        render();
+      });
+    });
+
+    // 버전 이름 변경 (인라인 입력)
+    mountEl.querySelectorAll('[data-action="ver-rename"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        if (!state.projectId) return;
+        ProjectVersions.rename(state.projectId, input.dataset.id, input.value);
+      });
     });
 
     const titleInput = mountEl.querySelector('#proj-title');

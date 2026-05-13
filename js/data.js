@@ -535,6 +535,105 @@ const ProjectData = {
   },
 };
 
+// 프로젝트 버전 스냅샷 (프로젝트 페이지 상태 저장/복구)
+//   - 시점별 프로젝트 행 / 외주 항목 / 메타 / 이름을 함께 저장
+//   - 복구 시 자동 백업 옵션으로 현재 상태를 잃지 않도록 보호
+const ProjectVersions = {
+  STORE_KEY: 'project.versions.v1',
+  // { [projectId]: [ { id, name, createdAt, snapshot: {...} } ] }
+
+  all() {
+    const data = Store.read(this.STORE_KEY, {});
+    return data && typeof data === 'object' ? data : {};
+  },
+
+  list(projectId) {
+    const arr = this.all()[projectId];
+    return Array.isArray(arr) ? arr : [];
+  },
+
+  saveAll(all) {
+    Store.write(this.STORE_KEY, all);
+  },
+
+  captureSnapshot(projectId) {
+    return {
+      rows: JSON.parse(JSON.stringify(ProjectData.allRows()[projectId] || {})),
+      externalItems: JSON.parse(JSON.stringify(ProjectData.allExternal()[projectId] || [])),
+      animMeta: Projects.getProjectMeta(projectId),
+      projectName: Projects.getName(projectId),
+    };
+  },
+
+  save(projectId, name) {
+    if (!projectId) return null;
+    const all = this.all();
+    if (!Array.isArray(all[projectId])) all[projectId] = [];
+    const id = 'ver_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+    all[projectId].unshift({
+      id,
+      name: (name || '').trim(),
+      createdAt: new Date().toISOString(),
+      snapshot: this.captureSnapshot(projectId),
+    });
+    this.saveAll(all);
+    return id;
+  },
+
+  restore(projectId, versionId, autoBackup) {
+    const list = this.list(projectId);
+    const ver = list.find((v) => v.id === versionId);
+    if (!ver) return false;
+    if (autoBackup) {
+      const ts = new Date().toLocaleString('ko-KR');
+      this.save(projectId, `복구 전 자동 백업 (${ts})`);
+    }
+    const snap = ver.snapshot || {};
+
+    // 행 복구
+    const allRows = ProjectData.allRows();
+    allRows[projectId] = snap.rows ? JSON.parse(JSON.stringify(snap.rows)) : {};
+    ProjectData.saveAllRows(allRows);
+
+    // 외주 항목 복구
+    const allExt = ProjectData.allExternal();
+    allExt[projectId] = snap.externalItems ? JSON.parse(JSON.stringify(snap.externalItems)) : [];
+    Store.write(ProjectData.STORE_EXTERNAL, allExt);
+
+    // 애니메이션 메타 복구 (5개 필드 명시적으로 전달)
+    if (snap.animMeta) {
+      Projects.setProjectMeta(projectId, {
+        totalSeconds: Number(snap.animMeta.totalSeconds) || 0,
+        secondsPerWeek: Number(snap.animMeta.secondsPerWeek) || 0,
+        cutsPerWeekLighting: Number(snap.animMeta.cutsPerWeekLighting) || 0,
+        cutsPerWeekFx: Number(snap.animMeta.cutsPerWeekFx) || 0,
+        cutsPerWeekComp: Number(snap.animMeta.cutsPerWeekComp) || 0,
+      });
+    }
+
+    // 프로젝트 이름 복구
+    if (snap.projectName) Projects.setName(projectId, snap.projectName);
+    return true;
+  },
+
+  remove(projectId, versionId) {
+    const all = this.all();
+    if (!Array.isArray(all[projectId])) return;
+    all[projectId] = all[projectId].filter((v) => v.id !== versionId);
+    this.saveAll(all);
+  },
+
+  rename(projectId, versionId, name) {
+    const all = this.all();
+    const list = all[projectId];
+    if (!Array.isArray(list)) return;
+    const v = list.find((x) => x.id === versionId);
+    if (!v) return;
+    v.name = (name || '').trim();
+    this.saveAll(all);
+  },
+};
+
 // 비용 페이지의 사용자 입력값(월별 매출인식/청구) 조회 헬퍼
 // - 결산 페이지에서 청구금액을 derive하기 위함
 const CostData = {
