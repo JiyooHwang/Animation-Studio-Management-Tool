@@ -51,6 +51,16 @@ const ProjectPage = (function () {
 
   function weekKey(year, month, week) { return `${year}-${month}-${week}`; }
 
+  // 외주 항목(itemId)이 가리키는 팀에 외주 행이 없으면 자동으로 1개 생성
+  function ensureExternalRowForItem(itemId) {
+    if (!state.projectId) return;
+    const items = ProjectData.externalItems(state.projectId);
+    const item = items.find((x) => x.id === itemId);
+    if (!item || !item.teamId) return;
+    const hasExt = ProjectData.rowsFor(state.projectId, item.teamId).some((r) => r.kind === '외주');
+    if (!hasExt) ProjectData.addRow(state.projectId, item.teamId, '외주');
+  }
+
   function setRowField(teamId, rowId, patch) {
     if (!state.projectId) return;
     ProjectData.updateRow(state.projectId, teamId, rowId, patch);
@@ -318,7 +328,8 @@ const ProjectPage = (function () {
 
     const bodyRows = TEAMS.map((team) => {
       const rows = ProjectData.rowsFor(state.projectId, team.id);
-      return rows.map((row, idx) => renderRow(team, row, idx, rows.length, months, totalCost)).join('');
+      const firstExternalIdx = rows.findIndex((r) => r.kind === '외주');
+      return rows.map((row, idx) => renderRow(team, row, idx, rows.length, months, totalCost, firstExternalIdx)).join('');
     }).join('');
 
     const totalsWeek = months.map((m, mi) => {
@@ -412,7 +423,7 @@ const ProjectPage = (function () {
     `;
   }
 
-  function renderRow(team, row, idx, rowCount, months, totalCost) {
+  function renderRow(team, row, idx, rowCount, months, totalCost, firstExternalIdx) {
     const isFirst = idx === 0;
     const isLast = idx === rowCount - 1;
     const onlyOne = rowCount === 1;
@@ -425,12 +436,21 @@ const ProjectPage = (function () {
     const isInternal = row.kind === '내부';
     const internalCost = isInternal ? resources * rate : 0;
     const externalCostRow = isInternal ? 0 : resources * rate;
-    const rowTotal = internalCost + externalCostRow;
-    const pct = totalCost > 0 ? (rowTotal / totalCost * 100) : 0;
 
-    // 첫 행이면 외주 항목 섹션 합계도 외주비용 컬럼에 표시 (팀 단위 추가 비용)
-    const teamExternalItems = isFirst ? ProjectData.externalSumForTeam(state.projectId, team.id) : 0;
+    // 외주 항목 섹션의 합계를 어느 행에 표시할지:
+    //  - 팀에 외주 행이 있으면: 첫 번째 외주 행에 표시 (자동 생성된 외주 행과 자연스럽게 결합)
+    //  - 팀에 외주 행이 없으면: 첫 행에 fallback 표시 (legacy 데이터 호환)
+    const hasExternalRow = firstExternalIdx >= 0;
+    const isFirstExternalRow = hasExternalRow && idx === firstExternalIdx;
+    const showExternalItemsHere = isFirstExternalRow || (!hasExternalRow && isFirst);
+    const teamExternalItems = showExternalItemsHere
+      ? ProjectData.externalSumForTeam(state.projectId, team.id)
+      : 0;
     const externalCostDisplay = externalCostRow + teamExternalItems;
+
+    // 총비용 = 내부비용 + 외주비용 (외주 항목 합계 포함)
+    const rowTotal = internalCost + externalCostDisplay;
+    const pct = totalCost > 0 ? (rowTotal / totalCost * 100) : 0;
 
     const weekCells = months.map((m, mi) => {
       const nextSameYear = months[mi + 1] && months[mi + 1].year === m.year;
@@ -637,6 +657,8 @@ const ProjectPage = (function () {
     mountEl.querySelectorAll('[data-action="ext-team"]').forEach((sel) => {
       sel.addEventListener('change', () => {
         ProjectData.updateExternalItem(state.projectId, sel.dataset.item, { teamId: sel.value });
+        // 외주 항목에 값이 있으면 해당 팀에 외주 행 자동 생성
+        ensureExternalRowForItem(sel.dataset.item);
         render();
       });
     });
@@ -650,6 +672,8 @@ const ProjectPage = (function () {
           Number(input.dataset.month),
           num
         );
+        // 값이 입력되었으면 해당 팀에 외주 행 자동 생성
+        if (num > 0) ensureExternalRowForItem(input.dataset.item);
         render();
       });
     });
