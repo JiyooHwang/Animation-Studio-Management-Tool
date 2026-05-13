@@ -658,6 +658,9 @@ const RosterPage = (function () {
       const team = TEAMS.find((t) => t.id === p.teamId);
       const teamName = team ? (team.name || team.role) : '';
       const monthVals = months.map((m) => {
+        // UI와 동일하게 휴직/퇴사 상태를 우선 반영해 표기
+        if (RosterData.isOnLeave(p, m.year, m.month)) return '휴';
+        if (RosterData.isAfterResign(p, m.year, m.month)) return '퇴';
         const v = (p.monthly || {})[monthKey(m.year, m.month)];
         return (v === undefined || v === null || v === '') ? '' : Number(v);
       });
