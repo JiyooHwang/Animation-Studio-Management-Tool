@@ -889,6 +889,10 @@ const ProjectPage = (function () {
   }
 
   // 구글 스프레드시트 스타일 드래그 채우기
+  //   - 시작 셀에서 현재 마우스 위치까지의 범위를 동적으로 추적
+  //   - 같은 행 안에서만 작동 (다른 row로 번지지 않음)
+  //   - 마우스가 셀 사이에 있어도 가장 가까운 셀에 스냅
+  //   - 뒤로 드래그하면 범위 축소
   let drag = null;
 
   function bindDragFill() {
@@ -906,47 +910,79 @@ const ProjectPage = (function () {
     const startInput = startTd.querySelector('input.proj-row-input');
     if (!startInput) return;
 
+    // 같은 row의 모든 week 셀을 DOM 순서로 수집
+    const rowId = startTd.dataset.row;
+    const trEl = startTd.closest('tr');
+    if (!trEl) return;
+    const allCells = Array.from(trEl.querySelectorAll('td[data-week-cell="1"]'))
+      .filter((c) => c.dataset.row === rowId);
+    const startIdx = allCells.indexOf(startTd);
+    if (startIdx < 0) return;
+
     drag = {
       sourceValue: startInput.value,
-      sourceRowId: startTd.dataset.row,
-      targets: new Map(),
+      sourceRowId: rowId,
+      allCells,
+      startIdx,
+      currentIdx: startIdx,
     };
-    addDragTarget(startTd);
+    updateDragHighlight();
 
     document.addEventListener('mousemove', onFillMove);
     document.addEventListener('mouseup', onFillEnd, { once: true });
   }
 
-  function addDragTarget(td) {
-    if (!drag) return;
-    // 같은 행(rowId)의 셀로 채우기 제한 (다른 row로 번지지 않도록)
-    if (drag.sourceRowId && td.dataset.row !== drag.sourceRowId) return;
-    const key = `${td.dataset.team}|${td.dataset.row}|${td.dataset.year}|${td.dataset.month}|${td.dataset.week}`;
-    if (drag.targets.has(key)) return;
-    drag.targets.set(key, td);
-    td.classList.add('fill-target');
-  }
-
   function onFillMove(e) {
     if (!drag) return;
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    if (!el) return;
-    const td = el.closest && el.closest('td[data-week-cell="1"]');
-    if (!td) return;
-    addDragTarget(td);
+    // 같은 row 안에서 마우스 x에 가장 가까운 셀을 찾기 (셀 사이여도 스냅)
+    let closestIdx = drag.currentIdx;
+    let closestDist = Infinity;
+    for (let i = 0; i < drag.allCells.length; i++) {
+      const r = drag.allCells[i].getBoundingClientRect();
+      const cx = (r.left + r.right) / 2;
+      const dist = Math.abs(e.clientX - cx);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestIdx = i;
+      }
+    }
+    if (closestIdx !== drag.currentIdx) {
+      drag.currentIdx = closestIdx;
+      updateDragHighlight();
+    }
+  }
+
+  function updateDragHighlight() {
+    if (!drag) return;
+    // 모든 셀의 표시 클래스 초기화
+    drag.allCells.forEach((c) => {
+      c.classList.remove('fill-target', 'fill-source', 'fill-edge-l', 'fill-edge-r');
+    });
+    const min = Math.min(drag.startIdx, drag.currentIdx);
+    const max = Math.max(drag.startIdx, drag.currentIdx);
+    for (let i = min; i <= max; i++) {
+      drag.allCells[i].classList.add('fill-target');
+    }
+    // 범위의 좌/우 끝 셀에 추가 클래스 (좌우 보더용)
+    drag.allCells[min].classList.add('fill-edge-l');
+    drag.allCells[max].classList.add('fill-edge-r');
+    drag.allCells[drag.startIdx].classList.add('fill-source');
   }
 
   function onFillEnd() {
     if (!drag) return;
     const num = parseNumber(drag.sourceValue);
+    const min = Math.min(drag.startIdx, drag.currentIdx);
+    const max = Math.max(drag.startIdx, drag.currentIdx);
+    const targets = drag.allCells.slice(min, max + 1);
 
     // 한 번에 batch 적용
     const all = ProjectData.allRows();
     if (!all[state.projectId]) all[state.projectId] = {};
     const projRows = all[state.projectId];
     let touched = false;
-    const affectedExternal = new Set(); // 외주 행이 영향받은 (teamId, year, month)
-    drag.targets.forEach((td) => {
+    const affectedExternal = new Set();
+    targets.forEach((td) => {
       const teamId = td.dataset.team;
       const rowId = td.dataset.row;
       const y = Number(td.dataset.year);
@@ -968,11 +1004,10 @@ const ProjectPage = (function () {
       item.weeks = weeks;
       if (item.kind === '외주') affectedExternal.add(`${teamId}|${y}|${m}`);
       touched = true;
-      td.classList.remove('fill-target');
+      td.classList.remove('fill-target', 'fill-source', 'fill-edge-l', 'fill-edge-r');
     });
     if (touched) ProjectData.saveAllRows(all);
 
-    // 외주 행이 영향받았으면 외주 항목 동기
     affectedExternal.forEach((key) => {
       const [teamId, y, m] = key.split('|');
       syncExternalItemFromTeam(teamId, Number(y), Number(m));

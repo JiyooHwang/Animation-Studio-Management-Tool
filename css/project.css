@@ -269,35 +269,51 @@
   position: relative;
 }
 
-/* 드래그 채우기 핸들 */
+/* 드래그 채우기 핸들 - 구글 시트 스타일 (10x10 사각, 흰 보더) */
 .project-table .fill-handle {
   position: absolute;
-  right: -1px;
-  bottom: -1px;
-  width: 7px;
-  height: 7px;
+  right: -3px;
+  bottom: -3px;
+  width: 10px;
+  height: 10px;
   background: var(--primary);
-  border: 1px solid #fff;
+  border: 1.5px solid #fff;
   cursor: crosshair;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.1s;
-  z-index: 2;
+  transition: opacity 0.05s;
+  z-index: 3;
   user-select: none;
+  border-radius: 1px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
 }
 .project-table td[data-week-cell="1"]:hover .fill-handle,
-.project-table td[data-week-cell="1"]:focus-within .fill-handle {
+.project-table td[data-week-cell="1"]:focus-within .fill-handle,
+.project-table td.fill-source .fill-handle {
   opacity: 1;
   pointer-events: auto;
 }
 
-/* 드래그 중 타겟 셀 표시 */
+/* 드래그 중 타겟 셀: 옅은 배경 + 상하 보더 (연속된 범위처럼 보이도록) */
 .project-table td.fill-target {
-  outline: 2px dashed var(--primary);
-  outline-offset: -2px;
-  background: rgba(37, 99, 235, 0.12) !important;
+  background: rgba(37, 99, 235, 0.10) !important;
+  box-shadow: inset 0 1.5px 0 var(--primary), inset 0 -1.5px 0 var(--primary);
 }
 .project-table td.fill-target input { background: transparent; }
+.project-table td.fill-edge-l {
+  box-shadow: inset 1.5px 1.5px 0 var(--primary), inset 0 -1.5px 0 var(--primary);
+}
+.project-table td.fill-edge-r {
+  box-shadow: inset -1.5px 1.5px 0 var(--primary), inset 0 -1.5px 0 var(--primary);
+}
+.project-table td.fill-edge-l.fill-edge-r {
+  /* 단일 셀일 때 사면 보더 */
+  box-shadow: inset 0 0 0 1.5px var(--primary);
+}
+/* 소스 셀 - 굵은 솔리드 보더 */
+.project-table td.fill-source {
+  box-shadow: inset 0 0 0 2px var(--primary) !important;
+}
 
 .project-table .col-actions {
   width: 36px;
