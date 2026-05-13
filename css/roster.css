@@ -143,6 +143,14 @@
   text-align: center;
 }
 
+/* 퇴사 후 셀 - 입력 불가, "퇴" 표시 */
+.roster-table td.cell-resigned {
+  background: #e5e7eb;
+  color: #6b7280;
+  font-weight: 600;
+  text-align: center;
+}
+
 /* 계약/휴직 컬럼 동적 입력 */
 .leave-period {
   display: flex;
