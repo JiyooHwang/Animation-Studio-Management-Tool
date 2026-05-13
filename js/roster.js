@@ -5,15 +5,20 @@
 const RosterPage = (function () {
   const STORE_LIST = 'roster.list.v1';
   const STORE_PERIOD = 'roster.period.v1';
+  const STORE_VIEW = 'roster.viewMode.v1';
   const DEFAULT_PERIOD = { startYear: 2025, startMonth: 11, monthCount: 14 };
 
   const EMP_TYPES = ['임원', '정규직', '계약직', '휴직', '퇴사자'];
   const POSITIONS = ['부사장/본부장', '실장', '팀장', '파트장', '팀원'];
   const MANAGER_POSITIONS = ['부사장/본부장', '실장', '팀장', '파트장'];
+  const VIEW_MODES = ['day', 'week', 'month'];
+  const VIEW_LABELS = { day: '일', week: '주', month: '월' };
+  const WEEKS_PER_MONTH = 4;
 
   let mountEl = null;
   let people = [];
   let period = Object.assign({}, DEFAULT_PERIOD);
+  let viewMode = 'month'; // 'day' | 'week' | 'month' (기본 = 현재 동작인 월별)
 
   function init(rootEl) {
     mountEl = rootEl;
@@ -21,6 +26,8 @@ const RosterPage = (function () {
     if (!Array.isArray(people)) people = [];
     const sp = Store.read(STORE_PERIOD, null);
     if (sp) period = Object.assign({}, period, sp);
+    const sv = Store.read(STORE_VIEW, null);
+    if (sv && VIEW_MODES.indexOf(sv) >= 0) viewMode = sv;
     render();
   }
 
@@ -40,6 +47,39 @@ const RosterPage = (function () {
       if (m > 12) { m = 1; y++; }
     }
     return out;
+  }
+
+  // 뷰 모드에 따른 컬럼 목록
+  //   month: 월별 1셀 (현재 동작)
+  //   week:  월별 4주 (W1~W4)
+  //   day:   월별 그 달 일수만큼 (1일~말일)
+  function periodColumns() {
+    const cols = [];
+    periodMonths().forEach((m) => {
+      if (viewMode === 'month') {
+        cols.push({ year: m.year, month: m.month });
+      } else if (viewMode === 'week') {
+        for (let w = 1; w <= WEEKS_PER_MONTH; w++) {
+          cols.push({ year: m.year, month: m.month, week: w, label: String(w) });
+        }
+      } else {
+        const daysInMonth = new Date(m.year, m.month, 0).getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+          cols.push({ year: m.year, month: m.month, day: d, label: String(d) });
+        }
+      }
+    });
+    return cols;
+  }
+
+  // 날짜 정밀 퇴사 체크: 컬럼이 day를 가지면 YYYY-MM-DD 기준, 아니면 month 기준
+  function isAfterResignCol(p, col) {
+    if (!p) return false;
+    if (col.day != null && p.resignDate) {
+      const dateStr = `${col.year}-${pad(col.month)}-${pad(col.day)}`;
+      return dateStr > String(p.resignDate);
+    }
+    return RosterData.isAfterResign(p, col.year, col.month);
   }
 
   function monthKey(y, m) { return `${y}-${m}`; }
@@ -181,6 +221,10 @@ const RosterPage = (function () {
       (m) => `<option value="${m}" ${m === period.startMonth ? 'selected' : ''}>${m}월</option>`
     ).join('');
 
+    const viewToggle = VIEW_MODES.map((m) =>
+      `<button class="${m === viewMode ? 'active' : ''}" type="button" data-action="view-mode" data-view="${m}">${VIEW_LABELS[m]}</button>`
+    ).join('');
+
     return `
       <div class="roster-toolbar">
         <button class="btn primary" id="r-add" type="button">+ 행 추가</button>
@@ -188,6 +232,8 @@ const RosterPage = (function () {
         <button class="btn ghost" id="r-remove-last" type="button">- 마지막 행 제거</button>
         <span style="font-size:11px; color:var(--text-dim); margin-left:6px;">💡 행 위에서 <strong>우클릭</strong>으로 위/아래 삽입 가능</span>
         <span class="spacer" style="flex:1;"></span>
+        <span style="font-size:11px; color:var(--text-dim);">보기</span>
+        <div class="view-toggle">${viewToggle}</div>
         <button class="btn" id="r-export" type="button" title="현재 본부 인원을 .xlsx 파일로 저장">⬇ 엑셀 다운로드</button>
         <button class="btn" id="r-import" type="button" title="엑셀에서 본부 인원을 불러와 교체/추가">⬆ 엑셀 업로드</button>
         <input type="file" id="r-import-file" accept=".xlsx,.xls" style="display:none" />
@@ -205,12 +251,19 @@ const RosterPage = (function () {
       return `<div class="roster-empty">아직 등록된 인원이 없습니다. <strong>+ 행 추가</strong> 버튼으로 인원을 추가하세요.</div>`;
     }
 
-    // 헤더 - year 그룹핑
+    const cols = periodColumns();
+
+    // 헤더 - year/month 그룹핑
     const yearGroups = [];
-    months.forEach((m) => {
-      const last = yearGroups[yearGroups.length - 1];
-      if (last && last.year === m.year) last.count++;
-      else yearGroups.push({ year: m.year, count: 1 });
+    const monthGroups = [];
+    cols.forEach((c) => {
+      const yLast = yearGroups[yearGroups.length - 1];
+      if (yLast && yLast.year === c.year) yLast.count++;
+      else yearGroups.push({ year: c.year, count: 1 });
+
+      const mLast = monthGroups[monthGroups.length - 1];
+      if (mLast && mLast.year === c.year && mLast.month === c.month) mLast.count++;
+      else monthGroups.push({ year: c.year, month: c.month, count: 1 });
     });
 
     const yearHeaderCells = yearGroups.map((g, gi) => {
@@ -218,39 +271,53 @@ const RosterPage = (function () {
       return `<th class="${cls}" colspan="${g.count}">${g.year}</th>`;
     }).join('');
 
-    const monthHeaderCells = months.map((m, mi) => {
-      const isYearEnd = mi < months.length - 1 && months[mi + 1].year !== m.year;
+    const monthHeaderCells = monthGroups.map((g, gi) => {
+      const isYearEnd = gi < monthGroups.length - 1 && monthGroups[gi + 1].year !== g.year;
       const cls = isYearEnd ? 'month-header year-end' : 'month-header';
-      return `<th class="${cls}">${m.month}월</th>`;
+      return `<th class="${cls}" colspan="${g.count}">${g.month}월</th>`;
     }).join('');
 
-    // 합계 row - 해당 월에 재직 중인 전체 인원 (휴직 중인 인원은 자동 제외)
-    const sumCells = months.map((m, mi) => {
+    // 일/주 모드일 때만 sub 헤더 (1~말일 또는 1~4)
+    const showSubHeader = viewMode !== 'month';
+    const subHeaderCells = showSubHeader
+      ? cols.map((c, ci) => {
+          const next = cols[ci + 1];
+          const isMonthEnd = !next || next.year !== c.year || next.month !== c.month;
+          const isYearEnd = !next || next.year !== c.year;
+          const cls = ['sub-header', isYearEnd ? 'year-end' : (isMonthEnd ? 'month-end' : '')].filter(Boolean).join(' ');
+          return `<th class="${cls}">${c.label || ''}</th>`;
+        }).join('')
+      : '';
+
+    // 합계 row - 월 단위 sum을 colspan으로 표시 (data는 monthly 기준)
+    const sumCells = monthGroups.map((g, gi) => {
       let s = 0;
-      people.forEach((p) => {
-        s += RosterData.effectiveMonthly(p, m.year, m.month);
-      });
-      const isYearEnd = mi < months.length - 1 && months[mi + 1].year !== m.year;
+      people.forEach((p) => { s += RosterData.effectiveMonthly(p, g.year, g.month); });
+      const isYearEnd = gi < monthGroups.length - 1 && monthGroups[gi + 1].year !== g.year;
       const cls = isYearEnd ? 'sum-header year-end' : 'sum-header';
-      return `<th class="${cls}">${formatSum(s)}</th>`;
+      return `<th class="${cls}" colspan="${g.count}">${formatSum(s)}</th>`;
     }).join('');
 
-    const bodyRows = people.map((p) => renderPersonRow(p, months)).join('');
+    const bodyRows = people.map((p) => renderPersonRow(p, cols)).join('');
+
+    // 헤더 rowspan: month 모드는 3, day/week 모드는 4
+    const headerRowspan = showSubHeader ? 4 : 3;
 
     return `
-      <table class="roster-table">
+      <table class="roster-table view-${viewMode}">
         <thead>
           <tr>
-            <th rowspan="3" class="col-actions col-actions-left">삭제</th>
-            <th rowspan="3" class="col-empType">고용구분</th>
-            <th rowspan="3" class="col-name">성명</th>
-            <th rowspan="3" class="col-position">직책</th>
-            <th rowspan="3" class="col-contract">계약/휴직 기간</th>
-            <th rowspan="3" class="col-team">팀</th>
+            <th rowspan="${headerRowspan}" class="col-actions col-actions-left">삭제</th>
+            <th rowspan="${headerRowspan}" class="col-empType">고용구분</th>
+            <th rowspan="${headerRowspan}" class="col-name">성명</th>
+            <th rowspan="${headerRowspan}" class="col-position">직책</th>
+            <th rowspan="${headerRowspan}" class="col-contract">계약/휴직 기간</th>
+            <th rowspan="${headerRowspan}" class="col-team">팀</th>
             ${yearHeaderCells}
-            <th rowspan="3" class="col-note">비고</th>
+            <th rowspan="${headerRowspan}" class="col-note">비고</th>
           </tr>
           <tr>${monthHeaderCells}</tr>
+          ${showSubHeader ? `<tr>${subHeaderCells}</tr>` : ''}
           <tr>${sumCells}</tr>
         </thead>
         <tbody>${bodyRows}</tbody>
@@ -258,7 +325,7 @@ const RosterPage = (function () {
     `;
   }
 
-  function renderPersonRow(p, months) {
+  function renderPersonRow(p, cols) {
     const empOpts = EMP_TYPES.map(
       (e) => `<option value="${e}" ${e === p.empType ? 'selected' : ''}>${e}</option>`
     ).join('');
@@ -269,27 +336,36 @@ const RosterPage = (function () {
       (t) => `<option value="${t.id}" ${t.id === p.teamId ? 'selected' : ''}>${escapeHtml(teamLabel(t))}</option>`
     ).join('');
 
-    const monthCells = months.map((m, mi) => {
-      const onLeave = RosterData.isOnLeave(p, m.year, m.month);
-      const afterResign = RosterData.isAfterResign(p, m.year, m.month);
-      const v = (p.monthly || {})[monthKey(m.year, m.month)];
+    // 일/주/월 뷰 모드에 따른 셀 렌더링
+    //   month: 셀당 입력(현재 동작) - 데이터 편집 가능
+    //   week/day: 같은 달의 셀들이 월별 값을 공유(read-only 표시) - 시각화 전용
+    const isInputMode = viewMode === 'month';
+    const monthCells = cols.map((c, ci) => {
+      const onLeave = RosterData.isOnLeave(p, c.year, c.month);
+      const afterResign = isAfterResignCol(p, c);
+      const v = (p.monthly || {})[monthKey(c.year, c.month)];
       const display = (v === undefined || v === null || v === '') ? '' : String(v);
       const isZero = display !== '' && Number(v) === 0;
-      const isYearEnd = mi < months.length - 1 && months[mi + 1].year !== m.year;
+      const next = cols[ci + 1];
+      const isMonthEnd = !next || next.year !== c.year || next.month !== c.month;
+      const isYearEnd = !next || next.year !== c.year;
       const cls = ['col-month',
         onLeave ? 'cell-leave' : '',
         afterResign ? 'cell-resigned' : '',
         !onLeave && !afterResign && isZero ? 'cell-zero' : '',
-        isYearEnd ? 'year-end' : ''].filter(Boolean).join(' ');
+        isYearEnd ? 'year-end' : (isMonthEnd ? 'month-end' : ''),
+      ].filter(Boolean).join(' ');
       if (onLeave) {
-        // 휴직 중인 월은 입력 불가, "휴" 표시 (저장된 값은 유지)
         return `<td class="${cls}" title="휴직 중 (인원 카운트 제외)">휴</td>`;
       }
       if (afterResign) {
-        // 퇴사일 이후 월은 입력 불가, "퇴" 표시 (저장된 값은 유지)
         return `<td class="${cls}" title="퇴사 이후 (인원 카운트 제외)">퇴</td>`;
       }
-      return `<td class="${cls}"><input class="roster-month-input" type="text" data-action="month" data-id="${p.id}" data-year="${m.year}" data-month="${m.month}" value="${display}" placeholder=""/></td>`;
+      if (isInputMode) {
+        return `<td class="${cls}"><input class="roster-month-input" type="text" data-action="month" data-id="${p.id}" data-year="${c.year}" data-month="${c.month}" value="${display}" placeholder=""/></td>`;
+      }
+      // 일/주 뷰: read-only 표시 (값은 monthly 단위)
+      return `<td class="${cls}">${display}</td>`;
     }).join('');
 
     const isManager = MANAGER_POSITIONS.includes(p.position);
@@ -398,6 +474,17 @@ const RosterPage = (function () {
     });
 
     // 엑셀 다운로드/업로드
+    // 뷰 모드 토글 (일/주/월)
+    mountEl.querySelectorAll('[data-action="view-mode"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const v = btn.dataset.view;
+        if (!VIEW_MODES.includes(v) || v === viewMode) return;
+        viewMode = v;
+        Store.write(STORE_VIEW, viewMode);
+        render();
+      });
+    });
+
     const exportBtn = mountEl.querySelector('#r-export');
     if (exportBtn) exportBtn.addEventListener('click', exportToExcel);
     const importBtn = mountEl.querySelector('#r-import');
