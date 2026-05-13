@@ -7,7 +7,7 @@ const RosterPage = (function () {
   const STORE_PERIOD = 'roster.period.v1';
   const DEFAULT_PERIOD = { startYear: 2025, startMonth: 11, monthCount: 14 };
 
-  const EMP_TYPES = ['임원', '정규직', '계약직', '휴직'];
+  const EMP_TYPES = ['임원', '정규직', '계약직', '휴직', '퇴사자'];
   const POSITIONS = ['부사장/본부장', '실장', '팀장', '파트장', '팀원'];
   const MANAGER_POSITIONS = ['부사장/본부장', '실장', '팀장', '파트장'];
 
@@ -61,6 +61,7 @@ const RosterPage = (function () {
       contractEnd: '',
       leaveStart: '',
       leaveEnd: '',
+      resignDate: '',
       teamId: TEAMS[0] ? TEAMS[0].id : '',
       monthly: defaultPersonMonthly(),
       note: '',
@@ -286,10 +287,11 @@ const RosterPage = (function () {
     }).join('');
 
     const isManager = MANAGER_POSITIONS.includes(p.position);
-    const rowCls = isManager ? 'row-manager' : '';
+    const isResigned = p.empType === '퇴사자';
+    const rowCls = [isResigned ? 'row-resigned' : '', isManager ? 'row-manager' : ''].filter(Boolean).join(' ');
     const empCls = `empType-${p.empType}`;
 
-    // 계약/휴직 컬럼 - empType에 따라 동적
+    // 계약/휴직/퇴사 컬럼 - empType에 따라 동적
     const hasLeavePeriod = !!(p.leaveStart || p.leaveEnd);
     let primaryCell;
     if (p.empType === '계약직') {
@@ -300,6 +302,12 @@ const RosterPage = (function () {
           <input class="roster-leave-input" type="month" data-action="leaveStart" data-id="${p.id}" value="${escapeHtml(p.leaveStart || '')}" title="휴직 시작 (YYYY-MM)" />
           <span class="leave-sep">~</span>
           <input class="roster-leave-input" type="month" data-action="leaveEnd" data-id="${p.id}" value="${escapeHtml(p.leaveEnd || '')}" title="휴직 종료 (YYYY-MM)" />
+        </div>`;
+    } else if (p.empType === '퇴사자') {
+      primaryCell = `
+        <div class="resign-cell">
+          <span class="resign-label">퇴사일</span>
+          <input class="roster-input text-center" type="text" data-action="resignDate" data-id="${p.id}" value="${escapeHtml(p.resignDate || '')}" placeholder="YYYY-MM-DD" />
         </div>`;
     } else {
       primaryCell = `<span class="cell-dash">-</span>`;
@@ -419,8 +427,8 @@ const RosterPage = (function () {
       });
     });
 
-    // 텍스트 필드 (재렌더 불필요: name / note / contractEnd)
-    mountEl.querySelectorAll('[data-action="name"], [data-action="note"], [data-action="contractEnd"]').forEach((input) => {
+    // 텍스트 필드 (재렌더 불필요: name / note / contractEnd / resignDate)
+    mountEl.querySelectorAll('[data-action="name"], [data-action="note"], [data-action="contractEnd"], [data-action="resignDate"]').forEach((input) => {
       input.addEventListener('change', () => {
         const id = input.dataset.id;
         const action = input.dataset.action;
@@ -549,7 +557,7 @@ const RosterPage = (function () {
     }
     const months = periodMonths();
     const headers = [
-      '고용구분', '성명', '직책', '계약종료일', '휴직시작', '휴직종료', '팀',
+      '고용구분', '성명', '직책', '계약종료일', '휴직시작', '휴직종료', '퇴사일', '팀',
       ...months.map((m) => `${m.year}-${pad(m.month)}`),
       '비고',
     ];
@@ -567,6 +575,7 @@ const RosterPage = (function () {
         p.contractEnd || '',
         p.leaveStart || '',
         p.leaveEnd || '',
+        p.resignDate || '',
         teamName,
         ...monthVals,
         p.note || '',
@@ -578,9 +587,9 @@ const RosterPage = (function () {
     // 컬럼 폭 (대략)
     ws['!cols'] = headers.map((h, i) => {
       if (i === 1) return { wch: 12 };  // 성명
-      if (i === 6) return { wch: 22 };  // 팀
+      if (i === 7) return { wch: 22 };  // 팀
       if (i === headers.length - 1) return { wch: 24 }; // 비고
-      if (i < 7) return { wch: 12 };
+      if (i < 8) return { wch: 12 };
       return { wch: 8 };
     });
 
@@ -619,6 +628,7 @@ const RosterPage = (function () {
         const cContract = colOf('계약종료일');
         const cLeaveS = colOf('휴직시작');
         const cLeaveE = colOf('휴직종료');
+        const cResign = colOf('퇴사일');
         const cTeam = colOf('팀');
         const cNote = colOf('비고');
         // 월 컬럼: "YYYY-M" 또는 "YYYY-MM" 또는 "YYYY.M(M)" 형식
@@ -663,6 +673,7 @@ const RosterPage = (function () {
             contractEnd: cContract >= 0 ? cellAsDate(row[cContract]) : '',
             leaveStart: cLeaveS >= 0 ? cellAsMonth(row[cLeaveS]) : '',
             leaveEnd: cLeaveE >= 0 ? cellAsMonth(row[cLeaveE]) : '',
+            resignDate: cResign >= 0 ? cellAsDate(row[cResign]) : '',
             teamId,
             monthly,
             note: cNote >= 0 ? String(row[cNote] == null ? '' : row[cNote]).trim() : '',

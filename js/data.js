@@ -678,9 +678,25 @@ const RosterData = {
     return true;
   },
 
-  // 휴직 중이면 0, 아니면 stored monthly 값
+  // 퇴사일이 지난 월인지 판정
+  // - resignDate (YYYY-MM-DD or YYYY-MM) 가 있고 (year, month) > resignDate 의 달이면 true
+  // - empType === '퇴사자' 이지만 resignDate 미설정 시: 모든 월을 퇴사 후로 간주
+  isAfterResign(person, year, month) {
+    if (!person) return false;
+    if (person.empType !== '퇴사자' && !person.resignDate) return false;
+    if (!person.resignDate) {
+      return person.empType === '퇴사자';
+    }
+    const m = String(person.resignDate).match(/^(\d{4})[-./](\d{1,2})/);
+    if (!m) return false;
+    const rY = Number(m[1]), rM = Number(m[2]);
+    return (year > rY) || (year === rY && month > rM);
+  },
+
+  // 휴직/퇴사 후면 0, 아니면 stored monthly 값
   effectiveMonthly(person, year, month) {
     if (this.isOnLeave(person, year, month)) return 0;
+    if (this.isAfterResign(person, year, month)) return 0;
     const v = (person.monthly || {})[`${year}-${month}`];
     if (v === undefined || v === null || v === '') return 0;
     return Number(v) || 0;

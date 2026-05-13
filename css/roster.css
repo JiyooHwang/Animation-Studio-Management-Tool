@@ -226,6 +226,40 @@
 .empType-임원 { color: #6b21a8; font-weight: 600; }
 .empType-계약직 { color: #b45309; }
 .empType-휴직 { color: #7c3aed; font-weight: 600; background: #f5f3ff; }
+.empType-퇴사자 { color: #6b7280; font-weight: 600; text-decoration: line-through; }
+
+/* 퇴사자 행 - 전체적으로 흐릿한 회색으로 표시 */
+.roster-table tr.row-resigned td {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+.roster-table tr.row-resigned:hover td {
+  background: #e5e7eb;
+}
+.roster-table tr.row-resigned td.col-name input,
+.roster-table tr.row-resigned td.col-note input {
+  color: #9ca3af;
+  text-decoration: line-through;
+}
+.roster-table tr.row-resigned td.col-month {
+  color: #9ca3af;
+  background: #f3f4f6;
+}
+
+/* 퇴사일 입력 셀 */
+.resign-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+}
+.resign-label {
+  font-size: 10px;
+  color: #b91c1c;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.roster-table tr.row-resigned .resign-label { color: #b91c1c; }
 
 .roster-empty {
   padding: 40px;
