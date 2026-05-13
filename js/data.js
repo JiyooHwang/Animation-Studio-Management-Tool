@@ -150,23 +150,36 @@ const Projects = {
     return rates.standard;
   },
 
-  // 프로젝트별 애니메이션 분량 (총 초)
+  // 프로젝트별 애니메이션 분량 (총 초) — legacy getter (총 분량과 동일)
   getAnimSeconds(projectId) {
-    if (!projectId) return 0;
-    const all = Store.read(this.STORE_ANIM, {}) || {};
-    const v = (all[projectId] || {}).seconds;
-    return Number(v) || 0;
+    return this.getProjectMeta(projectId).totalSeconds;
   },
 
   setAnimSeconds(projectId, seconds) {
+    this.setProjectMeta(projectId, { totalSeconds: Number(seconds) || 0 });
+  },
+
+  // 프로젝트별 메타 정보 (총 분량 / 주당 애니메이션 / 주당 샷)
+  //   - totalSeconds: 프로젝트 총 분량 (초)
+  //   - secondsPerWeek: 1인이 주당 작업하는 애니메이션 분량 (초)
+  //   - cutsPerWeek: 1인이 주당 작업하는 샷 수 (컷, 1컷=3초)
+  getProjectMeta(projectId) {
+    if (!projectId) return { totalSeconds: 0, secondsPerWeek: 0, cutsPerWeek: 0 };
+    const all = Store.read(this.STORE_ANIM, {}) || {};
+    const m = all[projectId] || {};
+    return {
+      totalSeconds: Number(m.totalSeconds || m.seconds || 0),
+      secondsPerWeek: Number(m.secondsPerWeek || 0),
+      cutsPerWeek: Number(m.cutsPerWeek || 0),
+    };
+  },
+
+  setProjectMeta(projectId, patch) {
     if (!projectId) return;
     const all = Store.read(this.STORE_ANIM, {}) || {};
-    const num = Number(seconds);
-    if (!num) {
-      delete all[projectId];
-    } else {
-      all[projectId] = Object.assign({}, all[projectId], { seconds: num });
-    }
+    const cur = Object.assign({}, all[projectId] || {});
+    delete cur.seconds; // legacy 필드 정리
+    all[projectId] = Object.assign(cur, patch);
     Store.write(this.STORE_ANIM, all);
   },
 };
