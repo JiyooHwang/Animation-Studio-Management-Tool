@@ -61,6 +61,30 @@ const ProjectPage = (function () {
     if (!hasExt) ProjectData.addRow(state.projectId, item.teamId, '외주');
   }
 
+  // 팀에 외주 항목이 더 이상 없고 외주 행도 비어 있으면 (리소스/단가 override 모두 없음) 그 행을 정리
+  // 외주 항목의 팀이 변경되거나 항목이 삭제될 때 이전 팀의 빈 외주 행이 남는 것을 방지
+  function cleanupEmptyExternalRows(teamId) {
+    if (!state.projectId || !teamId) return;
+    const remaining = ProjectData.externalItems(state.projectId).filter((it) => it.teamId === teamId);
+    if (remaining.length > 0) return; // 아직 외주 항목이 있으면 그대로
+    const all = ProjectData.allRows();
+    if (!all[state.projectId] || !Array.isArray(all[state.projectId][teamId])) return;
+    const rows = all[state.projectId][teamId];
+    const kept = rows.filter((row) => {
+      if (row.kind !== '외주') return true;
+      if (ProjectData.rowResources(row) > 0) return true;
+      if (row.rateOverride) return true;
+      return false; // 빈 외주 행 → 제거
+    });
+    if (kept.length === rows.length) return; // 변경 없음
+    if (kept.length === 0) {
+      delete all[state.projectId][teamId]; // 가상 default(내부)로 복귀
+    } else {
+      all[state.projectId][teamId] = kept;
+    }
+    ProjectData.saveAllRows(all);
+  }
+
   function setRowField(teamId, rowId, patch) {
     if (!state.projectId) return;
     ProjectData.updateRow(state.projectId, teamId, rowId, patch);
@@ -476,12 +500,13 @@ const ProjectPage = (function () {
 
     // 멀티 행이고 첫 번째 행이 아니면 역할 셀은 아예 그리지 않고 (첫 행의 rowspan으로 병합),
     // 첫 행이면 rowCount만큼 rowspan
+    // rowspan 셀은 첫 행 <tr>에 속하므로 tr.row-last 룰이 닿지 않음 → cell-team-end 클래스로 직접 굵은 하단 보더
     const roleCell = isFirst
-      ? `<td class="col-role" style="background:${color}; color:${textColor};" rowspan="${rowCount}">${escapeHtml(team.role)}</td>`
+      ? `<td class="col-role cell-team-end" style="background:${color}; color:${textColor};" rowspan="${rowCount}">${escapeHtml(team.role)}</td>`
       : '';
     // 총비용 셀: 첫 행에만 그리고 rowCount만큼 rowspan으로 병합 + 팀 합산 표시
     const totalCell = isFirst
-      ? `<td class="col-cost col-cost-total" rowspan="${rowCount}" title="팀 총비용 = 내부비용 + 외주비용 합산">${formatNumber(teamTotal, { zeroAsBlank: true })}</td>`
+      ? `<td class="col-cost col-cost-total cell-team-end" rowspan="${rowCount}" title="팀 총비용 = 내부비용 + 외주비용 합산">${formatNumber(teamTotal, { zeroAsBlank: true })}</td>`
       : '';
     const trClass = ['has-color', !isFirst ? 'row-sub' : '', isLast ? 'row-last' : ''].filter(Boolean).join(' ');
 
@@ -683,9 +708,15 @@ const ProjectPage = (function () {
     });
     mountEl.querySelectorAll('[data-action="ext-team"]').forEach((sel) => {
       sel.addEventListener('change', () => {
-        ProjectData.updateExternalItem(state.projectId, sel.dataset.item, { teamId: sel.value });
-        // 외주 항목에 값이 있으면 해당 팀에 외주 행 자동 생성
-        ensureExternalRowForItem(sel.dataset.item);
+        // 변경 전 이전 팀 기록
+        const itemId = sel.dataset.item;
+        const prev = ProjectData.externalItems(state.projectId).find((x) => x.id === itemId);
+        const oldTeamId = prev ? prev.teamId : null;
+        ProjectData.updateExternalItem(state.projectId, itemId, { teamId: sel.value });
+        // 새 팀에 외주 행 자동 생성
+        ensureExternalRowForItem(itemId);
+        // 이전 팀에 외주 항목이 없고 빈 외주 행만 남았다면 정리
+        if (oldTeamId && oldTeamId !== sel.value) cleanupEmptyExternalRows(oldTeamId);
         render();
       });
     });
@@ -707,7 +738,12 @@ const ProjectPage = (function () {
     mountEl.querySelectorAll('[data-action="ext-del"]').forEach((btn) => {
       btn.addEventListener('click', () => {
         if (!confirm('이 외주 항목을 삭제할까요?')) return;
-        ProjectData.removeExternalItem(state.projectId, btn.dataset.item);
+        const itemId = btn.dataset.item;
+        const item = ProjectData.externalItems(state.projectId).find((x) => x.id === itemId);
+        const teamId = item ? item.teamId : null;
+        ProjectData.removeExternalItem(state.projectId, itemId);
+        // 해당 팀에 외주 항목이 더 없고 빈 외주 행만 남았다면 정리
+        if (teamId) cleanupEmptyExternalRows(teamId);
         render();
       });
     });

@@ -418,6 +418,11 @@
 .project-table tbody tr.row-last > td {
   border-bottom: 2px solid var(--line-strong, #999);
 }
+/* rowspan으로 병합된 셀(역할/총비용)은 첫 행 <tr>에 속해 row-last 룰이 닿지 않음.
+   별도 클래스로 굵은 하단 보더를 부여해 팀 구분선이 끊기지 않도록 함. */
+.project-table tbody td.cell-team-end {
+  border-bottom: 2px solid var(--line-strong, #999);
+}
 
 .empty-rows-note {
   padding: 24px;
