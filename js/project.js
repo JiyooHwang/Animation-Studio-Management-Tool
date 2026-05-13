@@ -329,7 +329,10 @@ const ProjectPage = (function () {
     const bodyRows = TEAMS.map((team) => {
       const rows = ProjectData.rowsFor(state.projectId, team.id);
       const firstExternalIdx = rows.findIndex((r) => r.kind === '외주');
-      return rows.map((row, idx) => renderRow(team, row, idx, rows.length, months, totalCost, firstExternalIdx)).join('');
+      // 팀 총비용 = 팀의 내부비용 + 외주비용 (외주 항목 합 포함)
+      const teamTotal = ProjectData.rowInternalCost(state.projectId, team.id)
+        + ProjectData.rowExternalCost(state.projectId, team.id);
+      return rows.map((row, idx) => renderRow(team, row, idx, rows.length, months, totalCost, firstExternalIdx, teamTotal)).join('');
     }).join('');
 
     const totalsWeek = months.map((m, mi) => {
@@ -423,7 +426,7 @@ const ProjectPage = (function () {
     `;
   }
 
-  function renderRow(team, row, idx, rowCount, months, totalCost, firstExternalIdx) {
+  function renderRow(team, row, idx, rowCount, months, totalCost, firstExternalIdx, teamTotal) {
     const isFirst = idx === 0;
     const isLast = idx === rowCount - 1;
     const onlyOne = rowCount === 1;
@@ -476,6 +479,10 @@ const ProjectPage = (function () {
     const roleCell = isFirst
       ? `<td class="col-role" style="background:${color}; color:${textColor};" rowspan="${rowCount}">${escapeHtml(team.role)}</td>`
       : '';
+    // 총비용 셀: 첫 행에만 그리고 rowCount만큼 rowspan으로 병합 + 팀 합산 표시
+    const totalCell = isFirst
+      ? `<td class="col-cost col-cost-total" rowspan="${rowCount}" title="팀 총비용 = 내부비용 + 외주비용 합산">${formatNumber(teamTotal, { zeroAsBlank: true })}</td>`
+      : '';
     const trClass = ['has-color', !isFirst ? 'row-sub' : '', isLast ? 'row-last' : ''].filter(Boolean).join(' ');
 
     return `
@@ -489,9 +496,9 @@ const ProjectPage = (function () {
           </select>
         </td>
         <td class="col-resource">${resources || ''}</td>
-        <td class="col-cost col-cost-total" title="이 행의 총비용 (리소스합 × 단가)">${formatNumber(rowTotal, { zeroAsBlank: true })}</td>
+        ${totalCell}
         <td class="col-cost" title="내부 행: 리소스합 × 단가">${formatNumber(internalCost, { zeroAsBlank: true })}</td>
-        <td class="col-cost" title="외주 행: 리소스합 × 단가${isFirst ? ' + 하단 외주 항목 합계' : ''}">${formatNumber(externalCostDisplay, { zeroAsBlank: true })}</td>
+        <td class="col-cost" title="외주 행: 리소스합 × 단가${showExternalItemsHere ? ' + 하단 외주 항목 합계' : ''}">${formatNumber(externalCostDisplay, { zeroAsBlank: true })}</td>
         <td class="col-actions">${delBtn}${addBtn}</td>
         ${weekCells}
       </tr>
@@ -640,8 +647,28 @@ const ProjectPage = (function () {
     mountEl.querySelectorAll('[data-action="row-del"]').forEach((btn) => {
       btn.addEventListener('click', () => {
         if (!state.projectId) return;
-        if (!confirm('이 행을 삭제할까요?')) return;
-        ProjectData.removeRow(state.projectId, btn.dataset.team, btn.dataset.row);
+        const teamId = btn.dataset.team;
+        const rowId = btn.dataset.row;
+        // 삭제 전 상태 검사: 이 행이 외주 행이고 삭제 후 팀에 남는 외주 행이 없으면
+        // 그 팀의 외주 항목들도 함께 삭제할지 확인
+        const rowsBeforeDel = ProjectData.rowsFor(state.projectId, teamId);
+        const rowToDel = rowsBeforeDel.find((r) => r.id === rowId);
+        const otherExtRows = rowsBeforeDel.filter((r) => r.id !== rowId && r.kind === '외주');
+        const lastExtRow = rowToDel && rowToDel.kind === '외주' && otherExtRows.length === 0;
+        const teamExtItems = lastExtRow
+          ? ProjectData.externalItems(state.projectId).filter((it) => it.teamId === teamId)
+          : [];
+        const willDeleteItems = lastExtRow && teamExtItems.length > 0;
+
+        const confirmMsg = willDeleteItems
+          ? `이 외주 행을 삭제할까요?\n팀의 외주 항목 ${teamExtItems.length}건도 함께 삭제됩니다.`
+          : '이 행을 삭제할까요?';
+        if (!confirm(confirmMsg)) return;
+
+        ProjectData.removeRow(state.projectId, teamId, rowId);
+        if (willDeleteItems) {
+          teamExtItems.forEach((it) => ProjectData.removeExternalItem(state.projectId, it.id));
+        }
         render();
       });
     });
