@@ -234,15 +234,9 @@ const ProjectPage = (function () {
     ).join('');
 
     const rates = Projects.getRates();
-    const animSeconds = state.projectId ? Projects.getAnimSeconds(state.projectId) : 0;
-    const animPersonWeeks = state.projectId
-      ? ProjectData.rowsFor(state.projectId, 'animation').reduce(
-          (s, r) => s + ProjectData.rowResources(r), 0)
-      : 0;
-    const secPerPersonWeek = animPersonWeeks > 0 ? (animSeconds / animPersonWeeks) : 0;
-    const secPerPersonWeekDisplay = (animSeconds && animPersonWeeks)
-      ? `${secPerPersonWeek.toFixed(2)} 초`
-      : '<span style="color:var(--text-faint);">분량/인원 입력 필요</span>';
+    const meta = state.projectId
+      ? Projects.getProjectMeta(state.projectId)
+      : { totalSeconds: 0, secondsPerWeek: 0, cutsPerWeek: 0 };
 
     return `
       <div class="project-meta">
@@ -256,12 +250,12 @@ const ProjectPage = (function () {
             <input class="project-title-input" id="proj-title" type="text" value="${escapeHtml(projectName)}" placeholder="프로젝트 제목" />
           </div>
           <div class="anim-config" style="margin-top:10px;">
-            <label>애니메이션 분량 (초)</label>
-            <input id="anim-seconds" type="text" value="${animSeconds ? formatNumber(animSeconds) : ''}" placeholder="예: 1800" />
-            <label>애니메이션 총 인-주</label>
-            <span class="anim-readout">${animPersonWeeks ? formatNumber(animPersonWeeks) + ' 주' : '<span style="color:var(--text-faint);">애니메이션 행 리소스 미입력</span>'}</span>
-            <label>1인 주당 작업분량</label>
-            <span class="anim-readout anim-readout-emph">${secPerPersonWeekDisplay}</span>
+            <label>총 분량 (초)</label>
+            <input id="proj-total-sec" type="text" value="${meta.totalSeconds ? formatNumber(meta.totalSeconds) : ''}" placeholder="예: 1800" />
+            <label>주당 애니메이션 제작 분량 (초)</label>
+            <input id="proj-sec-per-week" type="text" value="${meta.secondsPerWeek ? formatNumber(meta.secondsPerWeek) : ''}" placeholder="예: 10" />
+            <label>주당 샷 제작 분량 (컷)</label>
+            <input id="proj-cuts-per-week" type="text" value="${meta.cutsPerWeek ? formatNumber(meta.cutsPerWeek) : ''}" placeholder="예: 5 (1컷=3초)" />
           </div>
         </div>
         <div class="rate-config">
@@ -343,7 +337,7 @@ const ProjectPage = (function () {
       <th class="col-pct" rowspan="3">%</th>
       <th class="col-role" rowspan="3">역할</th>
       <th class="col-kind" rowspan="3">분류</th>
-      <th class="col-resource" rowspan="3">리소스합</th>
+      <th class="col-resource" rowspan="3">총작업분량</th>
       <th class="col-cost col-cost-total" rowspan="3">총비용</th>
       <th class="col-cost" rowspan="3">내부비용</th>
       <th class="col-cost" rowspan="3">외주비용</th>
@@ -374,12 +368,24 @@ const ProjectPage = (function () {
       }).join('');
     }).join('');
 
-    const totalResources = TEAMS.reduce((s, t) => {
+    // 총작업분량 합계 (초로 환산): 애니메이션 팀은 secondsPerWeek, 그 외 팀은 cutsPerWeek×3 적용
+    const metaForTotal = state.projectId
+      ? Projects.getProjectMeta(state.projectId)
+      : { secondsPerWeek: 0, cutsPerWeek: 0 };
+    let totalWorkSec = 0;
+    TEAMS.forEach((t) => {
       ProjectData.rowsFor(state.projectId, t.id).forEach((r) => {
-        s += ProjectData.rowResources(r);
+        if (r.kind !== '내부') return;
+        const res = ProjectData.rowResources(r);
+        if (res <= 0) return;
+        if (t.id === 'animation') {
+          totalWorkSec += res * (metaForTotal.secondsPerWeek || 0);
+        } else {
+          totalWorkSec += res * (metaForTotal.cutsPerWeek || 0) * 3; // 1컷=3초
+        }
       });
-      return s;
-    }, 0);
+    });
+    const totalWorkDisplay = totalWorkSec > 0 ? `${formatNumber(totalWorkSec)} 초` : '';
 
     // 월별 비용 계산 - 모든 행 순회 (내부/외주 분리 합산) + 외주 항목 추가
     const monthlyBreakdown = months.map((m) => {
@@ -422,7 +428,7 @@ const ProjectPage = (function () {
         <tfoot>
           <tr>
             <td colspan="3" style="text-align:center;">합계</td>
-            <td class="col-resource">${totalResources || ''}</td>
+            <td class="col-resource" title="초 환산 합계 (1컷=3초)">${totalWorkDisplay}</td>
             <td class="col-cost col-cost-total">${formatNumber(totalCost, { zeroAsBlank: true })}</td>
             <td class="col-cost">${formatNumber(totalInternal, { zeroAsBlank: true })}</td>
             <td class="col-cost">${formatNumber(totalExternal, { zeroAsBlank: true })}</td>
@@ -479,16 +485,41 @@ const ProjectPage = (function () {
     const rowTotal = internalCost + externalCostDisplay;
     const pct = totalCost > 0 ? (rowTotal / totalCost * 100) : 0;
 
+    // 외주 행: 외주 항목에 비용이 있는 달의 주별 셀을 팀 컬러로 자동 채색 (숫자 입력 없이도)
+    const monthHasExtCost = {};
+    if (!isInternal) {
+      months.forEach((m) => {
+        const k = `${m.year}-${m.month}`;
+        if (monthHasExtCost[k] !== undefined) return;
+        monthHasExtCost[k] = ProjectData.externalSumForTeamMonth(state.projectId, team.id, m.year, m.month) > 0;
+      });
+    }
+
     const weekCells = months.map((m, mi) => {
       const nextSameYear = months[mi + 1] && months[mi + 1].year === m.year;
       const groupEnd = nextSameYear ? 'month-end' : 'year-end';
+      const autoColorMonth = !isInternal && monthHasExtCost[`${m.year}-${m.month}`];
       return [1, 2, 3, 4].map((w, wi) => {
         const v = (row.weeks || {})[weekKey(m.year, m.month, w)] || '';
         const cls = wi === 3 ? `col-week ${groupEnd}` : 'col-week';
-        const styleBg = v ? `style="background:${color}; color:${textColor};"` : '';
+        const styleBg = (v || autoColorMonth) ? `style="background:${color}; color:${textColor};"` : '';
         return `<td class="${cls}" ${styleBg} data-week-cell="1" data-team="${team.id}" data-row="${row.id}" data-year="${m.year}" data-month="${m.month}" data-week="${w}"><input class="proj-row-input" type="text" data-action="week" data-team="${team.id}" data-row="${row.id}" data-year="${m.year}" data-month="${m.month}" data-week="${w}" value="${v || ''}" placeholder=""/><span class="fill-handle" data-fill-handle="1" title="드래그하여 같은 값 채우기"></span></td>`;
       }).join('');
     }).join('');
+
+    // 총작업분량: 내부 행은 (리소스합 × 주당 제작 분량). 애니메이션 팀=초, 그 외=컷.
+    // 외주 행은 빈 값으로 표시.
+    let workDisplay = '';
+    if (isInternal && resources > 0 && state.projectId) {
+      const projMeta = Projects.getProjectMeta(state.projectId);
+      if (team.id === 'animation') {
+        const v = resources * (projMeta.secondsPerWeek || 0);
+        if (v > 0) workDisplay = `${formatNumber(v)} 초`;
+      } else {
+        const v = resources * (projMeta.cutsPerWeek || 0);
+        if (v > 0) workDisplay = `${formatNumber(v)} 컷`;
+      }
+    }
 
     // 액션 버튼: 마지막 행에 + (행 추가), 행이 2개 이상이면 × (이 행 삭제)
     const addBtn = isLast
@@ -520,7 +551,7 @@ const ProjectPage = (function () {
             <option value="외주" ${!isInternal ? 'selected' : ''}>외주</option>
           </select>
         </td>
-        <td class="col-resource">${resources || ''}</td>
+        <td class="col-resource" title="${isInternal ? '리소스합 × 주당 제작 분량' : ''}">${workDisplay}</td>
         ${totalCell}
         <td class="col-cost" title="내부 행: 리소스합 × 단가">${formatNumber(internalCost, { zeroAsBlank: true })}</td>
         <td class="col-cost" title="외주 행: 리소스합 × 단가${showExternalItemsHere ? ' + 하단 외주 항목 합계' : ''}">${formatNumber(externalCostDisplay, { zeroAsBlank: true })}</td>
@@ -579,9 +610,20 @@ const ProjectPage = (function () {
       render();
     });
 
-    const animSec = mountEl.querySelector('#anim-seconds');
-    if (animSec) animSec.addEventListener('change', () => {
-      Projects.setAnimSeconds(state.projectId, parseNumber(animSec.value));
+    // 프로젝트 메타: 총 분량 / 주당 애니메이션 제작 / 주당 샷 제작
+    const totalSecEl = mountEl.querySelector('#proj-total-sec');
+    if (totalSecEl) totalSecEl.addEventListener('change', () => {
+      Projects.setProjectMeta(state.projectId, { totalSeconds: parseNumber(totalSecEl.value) });
+      render();
+    });
+    const secPerWeekEl = mountEl.querySelector('#proj-sec-per-week');
+    if (secPerWeekEl) secPerWeekEl.addEventListener('change', () => {
+      Projects.setProjectMeta(state.projectId, { secondsPerWeek: parseNumber(secPerWeekEl.value) });
+      render();
+    });
+    const cutsPerWeekEl = mountEl.querySelector('#proj-cuts-per-week');
+    if (cutsPerWeekEl) cutsPerWeekEl.addEventListener('change', () => {
+      Projects.setProjectMeta(state.projectId, { cutsPerWeek: parseNumber(cutsPerWeekEl.value) });
       render();
     });
 

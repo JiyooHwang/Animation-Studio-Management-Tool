@@ -234,9 +234,10 @@
   font-weight: 700;
 }
 .project-table .col-resource {
-  width: 64px;
+  width: 100px;
   text-align: right;
   background: #fafafa;
+  font-size: 11px;
 }
 .project-table .col-rate {
   width: 110px;
