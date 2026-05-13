@@ -42,7 +42,7 @@ const Projects = {
   STORE_RATES: 'projects.rates.v1',
   STORE_NAMES_LEGACY: 'projects.names.v1', // 마이그레이션용
   STORE_ANIM: 'projects.anim.v1',     // { [projectId]: { seconds: number } }
-  DEFAULT_RATES: { exec: 3000000, premium: 2520000, standard: 2030000 },
+  DEFAULT_RATES: { exec: 3000000, premium: 2520000, standard: 2030000, external: 2030000 },
 
   list() {
     let stored = Store.read(this.STORE_LIST, null);
@@ -348,6 +348,10 @@ const ProjectData = {
   rowRate(row) {
     if (row && row.rateOverride !== undefined && row.rateOverride !== null && row.rateOverride !== '') {
       return Number(row.rateOverride) || 0;
+    }
+    // 외주 행은 외주 단가, 그 외엔 팀 분류별 단가 (exec/premium/standard)
+    if (row && row.kind === '외주') {
+      return Projects.getRates().external || 0;
     }
     return Projects.rateFor(row && row._teamId);
   },
