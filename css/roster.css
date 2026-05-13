@@ -163,6 +163,43 @@
 .leave-sep { color: var(--text-dim); font-size: 11px; }
 .cell-dash { color: var(--text-faint); }
 
+/* 휴직이 아닌 empType이지만 휴직 기록이 남아있을 때 표시 */
+.leave-history {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  padding: 1px 4px 1px 6px;
+  background: #fef3c7;
+  border: 1px dashed #d6b656;
+  border-radius: 3px;
+  font-size: 10.5px;
+  color: #7c5e18;
+  font-variant-numeric: tabular-nums;
+}
+.leave-history-label {
+  font-weight: 700;
+}
+.leave-history-range {
+  letter-spacing: 0.01em;
+}
+.btn-leave-clear {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #7c5e18;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 3px;
+  border-radius: 2px;
+  font-family: inherit;
+}
+.btn-leave-clear:hover {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
 /* 행 삭제 */
 .btn-roster-del {
   border: 1px solid transparent;
