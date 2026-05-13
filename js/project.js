@@ -555,9 +555,10 @@ const ProjectPage = (function () {
     const rowTotal = internalCost + externalCostDisplay;
     const pct = totalCost > 0 ? (rowTotal / totalCost * 100) : 0;
 
-    // 외주 행: 외주 항목에 비용이 있는 달의 주별 셀을 팀 컬러로 자동 채색 (숫자 입력 없이도)
+    // 외주 행 자동 채색: 외주 항목에 비용이 들어간 달에 한해 첫 번째 외주 행에만 적용
+    // (서브 외주 행은 자기 weekly 값에 따라서만 색칠 - 빈 행이 자동 채색되지 않도록)
     const monthHasExtCost = {};
-    if (!isInternal) {
+    if (!isInternal && isFirstExternalRow) {
       months.forEach((m) => {
         const k = `${m.year}-${m.month}`;
         if (monthHasExtCost[k] !== undefined) return;
