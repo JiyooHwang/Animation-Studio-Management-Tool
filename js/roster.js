@@ -290,19 +290,31 @@ const RosterPage = (function () {
     const empCls = `empType-${p.empType}`;
 
     // 계약/휴직 컬럼 - empType에 따라 동적
-    let contractCell;
+    const hasLeavePeriod = !!(p.leaveStart || p.leaveEnd);
+    let primaryCell;
     if (p.empType === '계약직') {
-      contractCell = `<input class="roster-input text-center" type="text" data-action="contractEnd" data-id="${p.id}" value="${escapeHtml(p.contractEnd || '')}" placeholder="YYYY-MM-DD" />`;
+      primaryCell = `<input class="roster-input text-center" type="text" data-action="contractEnd" data-id="${p.id}" value="${escapeHtml(p.contractEnd || '')}" placeholder="YYYY-MM-DD" />`;
     } else if (p.empType === '휴직') {
-      contractCell = `
+      primaryCell = `
         <div class="leave-period">
           <input class="roster-leave-input" type="month" data-action="leaveStart" data-id="${p.id}" value="${escapeHtml(p.leaveStart || '')}" title="휴직 시작 (YYYY-MM)" />
           <span class="leave-sep">~</span>
           <input class="roster-leave-input" type="month" data-action="leaveEnd" data-id="${p.id}" value="${escapeHtml(p.leaveEnd || '')}" title="휴직 종료 (YYYY-MM)" />
         </div>`;
     } else {
-      contractCell = `<span class="cell-dash">-</span>`;
+      primaryCell = `<span class="cell-dash">-</span>`;
     }
+
+    // 휴직이 아니지만 휴직 기록이 남아있는 경우 - 표시 + 삭제 버튼
+    const leaveHistory = (p.empType !== '휴직' && hasLeavePeriod)
+      ? `<div class="leave-history" title="휴직 기록 (인원 카운트에서 해당 월 자동 제외)">
+           <span class="leave-history-label">휴직</span>
+           <span class="leave-history-range">${escapeHtml(p.leaveStart || '?')} ~ ${escapeHtml(p.leaveEnd || '?')}</span>
+           <button class="btn-leave-clear" type="button" data-action="clearLeave" data-id="${p.id}" title="휴직 기록 삭제">×</button>
+         </div>`
+      : '';
+
+    const contractCell = `${primaryCell}${leaveHistory}`;
 
     return `
       <tr class="${rowCls}" data-id="${p.id}">
@@ -422,6 +434,18 @@ const RosterPage = (function () {
         const id = input.dataset.id;
         const action = input.dataset.action;
         updatePerson(id, { [action]: input.value });
+        render();
+      });
+    });
+
+    // 휴직 기록 삭제 (정규직/계약직 등으로 전환된 후 남아있는 휴직 기간을 제거)
+    mountEl.querySelectorAll('[data-action="clearLeave"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const p = people.find((x) => x.id === id);
+        const name = p && p.name ? p.name : '이 행';
+        if (!confirm(`"${name}"의 휴직 기록(${p && p.leaveStart || '?'} ~ ${p && p.leaveEnd || '?'})을 삭제할까요?\n해당 월의 휴직 표시가 모두 제거됩니다.`)) return;
+        updatePerson(id, { leaveStart: '', leaveEnd: '' });
         render();
       });
     });

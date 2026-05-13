@@ -663,15 +663,18 @@ const RosterData = {
   },
 
   // 휴직 중인지 판정
-  // - empType === '휴직' AND 현재 월이 leaveStart~leaveEnd 범위 안에 있음
-  // - leaveStart/leaveEnd 미설정 시: 전체 기간 휴직으로 간주
+  // - leaveStart/leaveEnd가 하나라도 설정되어 있으면 해당 기간 안에 들면 휴직으로 간주
+  //   (empType이 휴직이 아니어도 과거 휴직 기록이 유지됨)
+  // - 휴직 기간 미설정 + empType === '휴직' 이면 전체 기간을 휴직으로 간주 (legacy)
   isOnLeave(person, year, month) {
-    if (!person || person.empType !== '휴직') return false;
-    const start = person.leaveStart;  // 'YYYY-MM'
-    const end = person.leaveEnd;
+    if (!person) return false;
+    const hasPeriod = !!(person.leaveStart || person.leaveEnd);
+    if (!hasPeriod) {
+      return person.empType === '휴직';
+    }
     const cur = `${year}-${String(month).padStart(2, '0')}`;
-    if (start && cur < start) return false;
-    if (end && cur > end) return false;
+    if (person.leaveStart && cur < person.leaveStart) return false;
+    if (person.leaveEnd && cur > person.leaveEnd) return false;
     return true;
   },
 
