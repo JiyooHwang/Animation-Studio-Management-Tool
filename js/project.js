@@ -10,6 +10,18 @@ const ProjectPage = (function () {
   const WEEKS_PER_MONTH = 4;
   const DEFAULT_PERIOD = { startYear: 2026, startMonth: 4, monthCount: 9 };
 
+  // 팀별 총작업분량 단위
+  //   sec(초): 애니메이션 / cut(컷): simulation, fx, blender, lighting, composite
+  //   매핑에 없는 팀은 총작업분량 표기 안 함
+  const TEAM_WORK_UNITS = {
+    animation: 'sec',
+    simulation: 'cut',
+    fx: 'cut',
+    blender: 'cut',
+    lighting: 'cut',
+    composite: 'cut',
+  };
+
   let mountEl = null;
   let state = {
     projectId: null,
@@ -50,6 +62,39 @@ const ProjectPage = (function () {
   }
 
   function weekKey(year, month, week) { return `${year}-${month}-${week}`; }
+
+  // 팀의 외주 행 주별 리소스 합 × 외주 단가 = 그 팀의 그 달 외주 항목 monthly 금액
+  // 외주 행 주별 입력이 변경될 때마다 호출해 외주 항목(bottom 섹션)을 자동 동기화.
+  // 팀에 외주 항목이 없으면 (금액 > 0일 때) 자동 생성. 항목이 여러 개면 첫 번째에 모임.
+  function syncExternalItemFromTeam(teamId, year, month) {
+    if (!state.projectId || !teamId) return;
+    const rows = ProjectData.rowsFor(state.projectId, teamId);
+    let monthSum = 0;
+    rows.forEach((row) => {
+      if (row.kind !== '외주') return;
+      [1, 2, 3, 4].forEach((w) => {
+        const v = (row.weeks || {})[weekKey(year, month, w)];
+        monthSum += Number(v) || 0;
+      });
+    });
+    const rate = Projects.getRates().external || 0;
+    const amount = monthSum * rate;
+    let items = ProjectData.externalItems(state.projectId).filter((it) => it.teamId === teamId);
+    let itemId;
+    if (items.length > 0) {
+      itemId = items[0].id;
+    } else {
+      if (amount === 0) return; // 금액이 0이면 빈 항목 생성 안 함
+      itemId = ProjectData.addExternalItem(state.projectId, teamId);
+    }
+    ProjectData.setExternalMonthly(state.projectId, itemId, year, month, amount);
+  }
+
+  // 외주 행의 모든 월에 대해 외주 항목 동기 (kind 변경/행 삭제 시 호출)
+  function syncExternalItemsForTeamAllMonths(teamId) {
+    if (!state.projectId || !teamId) return;
+    periodMonths().forEach((m) => syncExternalItemFromTeam(teamId, m.year, m.month));
+  }
 
   // 외주 항목(itemId)이 가리키는 팀에 외주 행이 없으면 자동으로 1개 생성
   function ensureExternalRowForItem(itemId) {
@@ -368,42 +413,38 @@ const ProjectPage = (function () {
       }).join('');
     }).join('');
 
-    // 총작업분량 합계 (초로 환산): 애니메이션 팀은 secondsPerWeek, 그 외 팀은 cutsPerWeek×3 적용
+    // 총작업분량 합계 (초로 환산, 1컷=3초): TEAM_WORK_UNITS 매핑이 있는 팀의 내부+외주 모두
     const metaForTotal = state.projectId
       ? Projects.getProjectMeta(state.projectId)
       : { secondsPerWeek: 0, cutsPerWeek: 0 };
     let totalWorkSec = 0;
     TEAMS.forEach((t) => {
+      const u = TEAM_WORK_UNITS[t.id];
+      if (!u) return;
       ProjectData.rowsFor(state.projectId, t.id).forEach((r) => {
-        if (r.kind !== '내부') return;
         const res = ProjectData.rowResources(r);
         if (res <= 0) return;
-        if (t.id === 'animation') {
-          totalWorkSec += res * (metaForTotal.secondsPerWeek || 0);
-        } else {
-          totalWorkSec += res * (metaForTotal.cutsPerWeek || 0) * 3; // 1컷=3초
-        }
+        if (u === 'sec') totalWorkSec += res * (metaForTotal.secondsPerWeek || 0);
+        else if (u === 'cut') totalWorkSec += res * (metaForTotal.cutsPerWeek || 0) * 3;
       });
     });
     const totalWorkDisplay = totalWorkSec > 0 ? `${formatNumber(totalWorkSec)} 초` : '';
 
-    // 월별 비용 계산 - 모든 행 순회 (내부/외주 분리 합산) + 외주 항목 추가
+    // 월별 비용 계산: 내부 행은 그 달 리소스 × 단가, 외주는 외주 항목 합 (단일 소스)
     const monthlyBreakdown = months.map((m) => {
       let monthInternal = 0;
-      let monthExternalRows = 0;
       TEAMS.forEach((t) => {
         ProjectData.rowsFor(state.projectId, t.id).forEach((row) => {
+          if (row.kind !== '내부') return;
           const r = Object.assign({ _teamId: t.id }, row);
           const monthRes = [1, 2, 3, 4].reduce((s, w) => {
             return s + (Number((r.weeks || {})[weekKey(m.year, m.month, w)]) || 0);
           }, 0);
           if (monthRes <= 0) return;
-          const cost = monthRes * ProjectData.rowRate(r);
-          if (row.kind === '내부') monthInternal += cost;
-          else monthExternalRows += cost;
+          monthInternal += monthRes * ProjectData.rowRate(r);
         });
       });
-      const monthExternal = monthExternalRows + ProjectData.externalSumForMonth(state.projectId, m.year, m.month);
+      const monthExternal = ProjectData.externalSumForMonth(state.projectId, m.year, m.month);
       return {
         internal: monthInternal,
         external: monthExternal,
@@ -468,20 +509,19 @@ const ProjectPage = (function () {
     const rate = ProjectData.rowRate(rWithT);
     const isInternal = row.kind === '내부';
     const internalCost = isInternal ? resources * rate : 0;
-    const externalCostRow = isInternal ? 0 : resources * rate;
 
-    // 외주 항목 섹션의 합계를 어느 행에 표시할지:
-    //  - 팀에 외주 행이 있으면: 첫 번째 외주 행에 표시 (자동 생성된 외주 행과 자연스럽게 결합)
-    //  - 팀에 외주 행이 없으면: 첫 행에 fallback 표시 (legacy 데이터 호환)
+    // 외주비용 표시 위치:
+    //  - 팀의 첫 외주 행에 팀 전체 외주 항목 합 표시
+    //  - 외주 행이 없는 팀이고 외주 항목이 있으면 첫 행에 fallback (legacy)
+    //  - 외주비용 = 외주 항목 합 (외주 행 주별 리소스는 외주 항목으로 동기되어 단일 소스)
     const hasExternalRow = firstExternalIdx >= 0;
     const isFirstExternalRow = hasExternalRow && idx === firstExternalIdx;
     const showExternalItemsHere = isFirstExternalRow || (!hasExternalRow && isFirst);
-    const teamExternalItems = showExternalItemsHere
+    const externalCostDisplay = showExternalItemsHere
       ? ProjectData.externalSumForTeam(state.projectId, team.id)
       : 0;
-    const externalCostDisplay = externalCostRow + teamExternalItems;
 
-    // 총비용 = 내부비용 + 외주비용 (외주 항목 합계 포함)
+    // 총비용 = 내부비용 + 외주비용
     const rowTotal = internalCost + externalCostDisplay;
     const pct = totalCost > 0 ? (rowTotal / totalCost * 100) : 0;
 
@@ -507,15 +547,17 @@ const ProjectPage = (function () {
       }).join('');
     }).join('');
 
-    // 총작업분량: 내부 행은 (리소스합 × 주당 제작 분량). 애니메이션 팀=초, 그 외=컷.
-    // 외주 행은 빈 값으로 표시.
+    // 총작업분량: TEAM_WORK_UNITS 매핑이 있는 팀만 표시. 내부/외주 모두 카운트.
+    //   sec: 리소스합 × 주당 애니메이션 초
+    //   cut: 리소스합 × 주당 샷 컷
     let workDisplay = '';
-    if (isInternal && resources > 0 && state.projectId) {
+    const unit = TEAM_WORK_UNITS[team.id];
+    if (unit && resources > 0 && state.projectId) {
       const projMeta = Projects.getProjectMeta(state.projectId);
-      if (team.id === 'animation') {
+      if (unit === 'sec') {
         const v = resources * (projMeta.secondsPerWeek || 0);
         if (v > 0) workDisplay = `${formatNumber(v)} 초`;
-      } else {
+      } else if (unit === 'cut') {
         const v = resources * (projMeta.cutsPerWeek || 0);
         if (v > 0) workDisplay = `${formatNumber(v)} 컷`;
       }
@@ -686,21 +728,26 @@ const ProjectPage = (function () {
 
     mountEl.querySelectorAll('[data-action="kind"]').forEach((sel) => {
       sel.addEventListener('change', () => {
-        setRowField(sel.dataset.team, sel.dataset.row, { kind: sel.value });
+        const teamId = sel.dataset.team;
+        setRowField(teamId, sel.dataset.row, { kind: sel.value });
+        // kind 변경 → 팀의 외주 행 구성이 바뀌므로 외주 항목 전체 재동기
+        syncExternalItemsForTeamAllMonths(teamId);
         render();
       });
     });
     mountEl.querySelectorAll('[data-action="week"]').forEach((input) => {
       input.addEventListener('change', () => {
         const num = parseNumber(input.value);
-        setWeek(
-          input.dataset.team,
-          input.dataset.row,
-          Number(input.dataset.year),
-          Number(input.dataset.month),
-          Number(input.dataset.week),
-          num
-        );
+        const teamId = input.dataset.team;
+        const rowId = input.dataset.row;
+        const year = Number(input.dataset.year);
+        const month = Number(input.dataset.month);
+        setWeek(teamId, rowId, year, month, Number(input.dataset.week), num);
+        // 외주 행이면 그 달의 외주 항목 금액 자동 동기
+        const row = ProjectData.rowsFor(state.projectId, teamId).find((r) => r.id === rowId);
+        if (row && row.kind === '외주') {
+          syncExternalItemFromTeam(teamId, year, month);
+        }
         render();
       });
     });
@@ -732,9 +779,13 @@ const ProjectPage = (function () {
           : '이 행을 삭제할까요?';
         if (!confirm(confirmMsg)) return;
 
+        const wasExternal = rowToDel && rowToDel.kind === '외주';
         ProjectData.removeRow(state.projectId, teamId, rowId);
         if (willDeleteItems) {
           teamExtItems.forEach((it) => ProjectData.removeExternalItem(state.projectId, it.id));
+        } else if (wasExternal) {
+          // 외주 행 하나만 삭제, 다른 외주 행이 남아 있으면 외주 항목 금액 재계산
+          syncExternalItemsForTeamAllMonths(teamId);
         }
         render();
       });
@@ -848,6 +899,7 @@ const ProjectPage = (function () {
     if (!all[state.projectId]) all[state.projectId] = {};
     const projRows = all[state.projectId];
     let touched = false;
+    const affectedExternal = new Set(); // 외주 행이 영향받은 (teamId, year, month)
     drag.targets.forEach((td) => {
       const teamId = td.dataset.team;
       const rowId = td.dataset.row;
@@ -868,10 +920,17 @@ const ProjectPage = (function () {
       if (!num) delete weeks[k];
       else weeks[k] = num;
       item.weeks = weeks;
+      if (item.kind === '외주') affectedExternal.add(`${teamId}|${y}|${m}`);
       touched = true;
       td.classList.remove('fill-target');
     });
     if (touched) ProjectData.saveAllRows(all);
+
+    // 외주 행이 영향받았으면 외주 항목 동기
+    affectedExternal.forEach((key) => {
+      const [teamId, y, m] = key.split('|');
+      syncExternalItemFromTeam(teamId, Number(y), Number(m));
+    });
 
     drag = null;
     document.removeEventListener('mousemove', onFillMove);
