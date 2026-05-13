@@ -199,7 +199,6 @@ const ProjectPage = (function () {
       (p) => `<option value="${p.id}" ${p.id === state.projectId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
     ).join('');
 
-    const rates = Projects.getRates();
     const animSeconds = state.projectId ? Projects.getAnimSeconds(state.projectId) : 0;
     const animPersonWeeks = state.projectId
       ? ProjectData.rowsFor(state.projectId, 'animation').reduce(
@@ -229,14 +228,6 @@ const ProjectPage = (function () {
             <label>1인 주당 작업분량</label>
             <span class="anim-readout anim-readout-emph">${secPerPersonWeekDisplay}</span>
           </div>
-        </div>
-        <div class="rate-config">
-          <label>주당단가 (본부장)</label>
-          <input id="rate-exec" type="text" value="${formatNumber(rates.exec)}" />
-          <label>주당단가 (PD,SUP,Dr,IPB)</label>
-          <input id="rate-premium" type="text" value="${formatNumber(rates.premium)}" />
-          <label>주당단가 (그 외 부서)</label>
-          <input id="rate-standard" type="text" value="${formatNumber(rates.standard)}" />
         </div>
       </div>
     `;
@@ -528,28 +519,6 @@ const ProjectPage = (function () {
     const titleInput = mountEl.querySelector('#proj-title');
     if (titleInput) titleInput.addEventListener('change', () => {
       Projects.setName(state.projectId, titleInput.value);
-      render();
-    });
-
-    const rateExec = mountEl.querySelector('#rate-exec');
-    const ratePremium = mountEl.querySelector('#rate-premium');
-    const rateStandard = mountEl.querySelector('#rate-standard');
-    if (rateExec) rateExec.addEventListener('change', () => {
-      const r = Projects.getRates();
-      r.exec = parseNumber(rateExec.value);
-      Projects.setRates(r);
-      render();
-    });
-    if (ratePremium) ratePremium.addEventListener('change', () => {
-      const r = Projects.getRates();
-      r.premium = parseNumber(ratePremium.value);
-      Projects.setRates(r);
-      render();
-    });
-    if (rateStandard) rateStandard.addEventListener('change', () => {
-      const r = Projects.getRates();
-      r.standard = parseNumber(rateStandard.value);
-      Projects.setRates(r);
       render();
     });
 
