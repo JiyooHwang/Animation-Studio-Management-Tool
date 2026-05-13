@@ -271,17 +271,23 @@ const RosterPage = (function () {
 
     const monthCells = months.map((m, mi) => {
       const onLeave = RosterData.isOnLeave(p, m.year, m.month);
+      const afterResign = RosterData.isAfterResign(p, m.year, m.month);
       const v = (p.monthly || {})[monthKey(m.year, m.month)];
       const display = (v === undefined || v === null || v === '') ? '' : String(v);
       const isZero = display !== '' && Number(v) === 0;
       const isYearEnd = mi < months.length - 1 && months[mi + 1].year !== m.year;
       const cls = ['col-month',
         onLeave ? 'cell-leave' : '',
-        !onLeave && isZero ? 'cell-zero' : '',
+        afterResign ? 'cell-resigned' : '',
+        !onLeave && !afterResign && isZero ? 'cell-zero' : '',
         isYearEnd ? 'year-end' : ''].filter(Boolean).join(' ');
       if (onLeave) {
         // 휴직 중인 월은 입력 불가, "휴" 표시 (저장된 값은 유지)
         return `<td class="${cls}" title="휴직 중 (인원 카운트 제외)">휴</td>`;
+      }
+      if (afterResign) {
+        // 퇴사일 이후 월은 입력 불가, "퇴" 표시 (저장된 값은 유지)
+        return `<td class="${cls}" title="퇴사 이후 (인원 카운트 제외)">퇴</td>`;
       }
       return `<td class="${cls}"><input class="roster-month-input" type="text" data-action="month" data-id="${p.id}" data-year="${m.year}" data-month="${m.month}" value="${display}" placeholder=""/></td>`;
     }).join('');
