@@ -199,6 +199,7 @@ const ProjectPage = (function () {
       (p) => `<option value="${p.id}" ${p.id === state.projectId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
     ).join('');
 
+    const rates = Projects.getRates();
     const animSeconds = state.projectId ? Projects.getAnimSeconds(state.projectId) : 0;
     const animPersonWeeks = state.projectId
       ? ProjectData.rowsFor(state.projectId, 'animation').reduce(
@@ -228,6 +229,16 @@ const ProjectPage = (function () {
             <label>1인 주당 작업분량</label>
             <span class="anim-readout anim-readout-emph">${secPerPersonWeekDisplay}</span>
           </div>
+        </div>
+        <div class="rate-config">
+          <label>ManWeek (본부장)</label>
+          <input id="rate-exec" type="text" value="${formatNumber(rates.exec)}" />
+          <label>ManWeek (PD,Director,Supervisor,IPB)</label>
+          <input id="rate-premium" type="text" value="${formatNumber(rates.premium)}" />
+          <label>ManWeek (그 외 부서)</label>
+          <input id="rate-standard" type="text" value="${formatNumber(rates.standard)}" />
+          <label>ManWeek (외주)</label>
+          <input id="rate-external" type="text" value="${formatNumber(rates.external)}" />
         </div>
       </div>
     `;
@@ -299,7 +310,6 @@ const ProjectPage = (function () {
       <th class="col-role" rowspan="3">역할</th>
       <th class="col-kind" rowspan="3">분류</th>
       <th class="col-resource" rowspan="3">리소스합</th>
-      <th class="col-rate" rowspan="3">주당단가</th>
       <th class="col-cost col-cost-total" rowspan="3">총비용</th>
       <th class="col-cost" rowspan="3">내부비용</th>
       <th class="col-cost" rowspan="3">외주비용</th>
@@ -375,7 +385,6 @@ const ProjectPage = (function () {
           <tr>
             <td colspan="3" style="text-align:center;">합계</td>
             <td class="col-resource">${totalResources || ''}</td>
-            <td class="col-rate"></td>
             <td class="col-cost col-cost-total">${formatNumber(totalCost, { zeroAsBlank: true })}</td>
             <td class="col-cost">${formatNumber(totalInternal, { zeroAsBlank: true })}</td>
             <td class="col-cost">${formatNumber(totalExternal, { zeroAsBlank: true })}</td>
@@ -383,20 +392,20 @@ const ProjectPage = (function () {
             ${totalsWeek}
           </tr>
           <tr class="monthly-row monthly-row-total">
-            <td colspan="9" class="monthly-label">월별 총비용</td>
+            <td colspan="8" class="monthly-label">월별 총비용</td>
             ${monthlyCells('total')}
           </tr>
           <tr class="monthly-row monthly-row-internal">
-            <td colspan="9" class="monthly-label">월별 내부비용</td>
+            <td colspan="8" class="monthly-label">월별 내부비용</td>
             ${monthlyCells('internal')}
           </tr>
           <tr class="monthly-row monthly-row-external">
-            <td colspan="9" class="monthly-label">월별 외주비용</td>
+            <td colspan="8" class="monthly-label">월별 외주비용</td>
             ${monthlyCells('external')}
           </tr>
           <tr>
             <td colspan="3" style="text-align:center;">총비용</td>
-            <td colspan="${6 + months.length * WEEKS_PER_MONTH}" style="text-align:right; padding-right:14px; background:#fff7a8; font-weight:700;">${formatNumber(totalCost)}</td>
+            <td colspan="${5 + months.length * WEEKS_PER_MONTH}" style="text-align:right; padding-right:14px; background:#fff7a8; font-weight:700;">${formatNumber(totalCost)}</td>
           </tr>
         </tfoot>
       </table>
@@ -434,9 +443,6 @@ const ProjectPage = (function () {
       }).join('');
     }).join('');
 
-    const rateDisplay = (row.rateOverride !== undefined && row.rateOverride !== '' && row.rateOverride !== null)
-      ? formatNumber(row.rateOverride) : formatNumber(rate);
-
     // 액션 버튼: 마지막 행에 + (행 추가), 행이 2개 이상이면 × (이 행 삭제)
     const addBtn = isLast
       ? `<button class="btn-row-add" type="button" data-action="row-add" data-team="${team.id}" title="이 역할에 행 추가">+</button>`
@@ -463,7 +469,6 @@ const ProjectPage = (function () {
           </select>
         </td>
         <td class="col-resource">${resources || ''}</td>
-        <td class="col-rate"><input class="proj-rate-input" type="text" data-action="rate" data-team="${team.id}" data-row="${row.id}" value="${rateDisplay}" /></td>
         <td class="col-cost col-cost-total" title="이 행의 총비용 (리소스합 × 단가)">${formatNumber(rowTotal, { zeroAsBlank: true })}</td>
         <td class="col-cost" title="내부 행: 리소스합 × 단가">${formatNumber(internalCost, { zeroAsBlank: true })}</td>
         <td class="col-cost" title="외주 행: 리소스합 × 단가${isFirst ? ' + 하단 외주 항목 합계' : ''}">${formatNumber(externalCostDisplay, { zeroAsBlank: true })}</td>
@@ -528,6 +533,36 @@ const ProjectPage = (function () {
       render();
     });
 
+    // 우상단 ManWeek 단가 4종 (본부장 / PD,Dr,SUP,IPB / 그 외 / 외주)
+    const rateExec = mountEl.querySelector('#rate-exec');
+    const ratePremium = mountEl.querySelector('#rate-premium');
+    const rateStandard = mountEl.querySelector('#rate-standard');
+    const rateExternal = mountEl.querySelector('#rate-external');
+    if (rateExec) rateExec.addEventListener('change', () => {
+      const r = Projects.getRates();
+      r.exec = parseNumber(rateExec.value);
+      Projects.setRates(r);
+      render();
+    });
+    if (ratePremium) ratePremium.addEventListener('change', () => {
+      const r = Projects.getRates();
+      r.premium = parseNumber(ratePremium.value);
+      Projects.setRates(r);
+      render();
+    });
+    if (rateStandard) rateStandard.addEventListener('change', () => {
+      const r = Projects.getRates();
+      r.standard = parseNumber(rateStandard.value);
+      Projects.setRates(r);
+      render();
+    });
+    if (rateExternal) rateExternal.addEventListener('change', () => {
+      const r = Projects.getRates();
+      r.external = parseNumber(rateExternal.value);
+      Projects.setRates(r);
+      render();
+    });
+
     const sy = mountEl.querySelector('#proj-start-year');
     const sm = mountEl.querySelector('#proj-start-month');
     if (sy) sy.addEventListener('change', (e) => {
@@ -558,14 +593,6 @@ const ProjectPage = (function () {
     mountEl.querySelectorAll('[data-action="kind"]').forEach((sel) => {
       sel.addEventListener('change', () => {
         setRowField(sel.dataset.team, sel.dataset.row, { kind: sel.value });
-        render();
-      });
-    });
-    mountEl.querySelectorAll('[data-action="rate"]').forEach((input) => {
-      input.addEventListener('change', () => {
-        const v = input.value.trim();
-        const num = v === '' ? null : parseNumber(v);
-        setRowField(input.dataset.team, input.dataset.row, { rateOverride: num });
         render();
       });
     });
