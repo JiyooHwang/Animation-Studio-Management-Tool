@@ -47,7 +47,7 @@
 
 /* Header rows */
 .personnel-table thead .year-header {
-  background: #fff7a8;
+  background: #ede4c5;
   color: var(--text);
   font-weight: 700;
   font-size: 13px;
@@ -73,7 +73,7 @@
 /* Top-left fixed corner cell (팀 + 역할 spans 3 rows) */
 .personnel-table thead .corner-team,
 .personnel-table thead .corner-role {
-  background: #fff7a8;
+  background: #ede4c5;
   color: var(--text);
   font-weight: 700;
   text-align: center;
