@@ -53,7 +53,7 @@
   gap: 16px;
   margin-bottom: 12px;
   padding: 12px 14px;
-  background: #fff7a8;
+  background: #ede4c5;
   border: 1px solid var(--line);
   border-radius: 6px;
 }
@@ -194,7 +194,7 @@
   letter-spacing: 0.04em;
 }
 .project-table thead .header-yellow {
-  background: #fff7a8;
+  background: #ede4c5;
   color: var(--text);
   font-weight: 700;
   font-size: 12px;
@@ -229,25 +229,25 @@
 .project-table .col-cost {
   width: 110px;
   text-align: right;
-  background: #f8d7da;
+  background: #decace;
 }
 /* 외주비용 칸: 내부비용과 색상 차이 (라이트 라벤더) */
 .project-table .col-cost.col-cost-external {
-  background: #e9d5ff;
+  background: #d3c4e1;
 }
 .project-table thead .col-cost.col-cost-external {
-  background: #ddd6fe;
+  background: #cbc1de;
 }
 .project-table tfoot .col-cost.col-cost-external {
-  background: #c7b6fb;
+  background: #b5a8d0;
   font-weight: 700;
 }
 .project-table .col-cost-total {
-  background: #fff7a8;
+  background: #ede4c5;
   font-weight: 600;
 }
 .project-table tfoot .col-cost-total {
-  background: #fde68a;
+  background: #dcc890;
   font-weight: 700;
 }
 .project-table .col-resource {
@@ -386,13 +386,13 @@
   font-weight: 600;
 }
 .project-table tfoot .monthly-row-total .monthly-cell {
-  background: #fde68a;
+  background: #dcc890;
 }
 .project-table tfoot .monthly-row-internal .monthly-cell {
-  background: #fff7a8;
+  background: #ede4c5;
 }
 .project-table tfoot .monthly-row-external .monthly-cell {
-  background: #fce4ec;
+  background: #e0d0d6;
 }
 
 .proj-select-row {
@@ -515,7 +515,7 @@
   font-size: 11px;
 }
 .ext-table .ext-year-header {
-  background: #fff7a8;
+  background: #ede4c5;
   color: var(--text);
   font-weight: 700;
   font-size: 12px;
@@ -544,7 +544,7 @@
 .ext-cell {
   text-align: right;
   width: 90px;
-  background: #fce4ec;
+  background: #e0d0d6;
 }
 .ext-input {
   width: 100%;
@@ -560,7 +560,7 @@
 .ext-input:focus { outline: 1.5px solid var(--primary); background: #fff; }
 .ext-sum {
   text-align: right;
-  background: #fde68a;
+  background: #dcc890;
   font-weight: 600;
   width: 120px;
 }
@@ -594,7 +594,7 @@
 }
 .ext-total-cell {
   text-align: right;
-  background: #fef3c7;
+  background: #ece2c2;
   font-weight: 600;
 }
 
