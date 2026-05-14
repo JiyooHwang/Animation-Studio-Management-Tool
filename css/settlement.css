@@ -23,8 +23,8 @@
 .settlement-hint {
   font-size: 11px;
   color: var(--text-dim);
-  background: #fffbeb;
-  border: 1px dashed #f59e0b;
+  background: #f7f1e0;
+  border: 1px dashed #c08a4a;
   padding: 8px 12px;
   border-radius: 6px;
   margin-bottom: 12px;
@@ -66,9 +66,9 @@
   z-index: 3;
 }
 .settlement-table thead tr:nth-child(2) th { top: 30px; z-index: 2; }
-.settlement-table thead .col-period { background: #fde68a; font-size: 13px; }
+.settlement-table thead .col-period { background: #dcc890; font-size: 13px; }
 .settlement-table thead .col-total {
-  background: #fef3c7;
+  background: #ece2c2;
   width: 130px;
   border-left: 3px solid var(--text);
 }
@@ -78,16 +78,16 @@
 .settlement-table .col-project {
   font-weight: 700;
   text-align: center;
-  background: #fff7a8;
+  background: #ede4c5;
   font-size: 13px;
 }
 .settlement-table .col-project.block-hq {
-  background: #fef3c7;
+  background: #ece2c2;
   color: #92400e;
-  border-left: 4px solid #f59e0b;
+  border-left: 4px solid #c08a4a;
 }
 .settlement-table .col-project.block-project {
-  border-left: 4px solid #d97706;
+  border-left: 4px solid #b08654;
 }
 
 .settlement-table .col-kind {
@@ -96,19 +96,19 @@
   background: #fafafa;
 }
 .settlement-table .kind-internal {
-  background: #fff7a8;
+  background: #ede4c5;
   color: #92400e;
 }
 .settlement-table .kind-external {
-  background: #fce4ec;
+  background: #e0d0d6;
   color: #9f1239;
 }
 .settlement-table .kind-billing {
-  background: #ddd6fe;
+  background: #cbc1de;
   color: #5b21b6;
 }
 .settlement-table .kind-deposit {
-  background: #d1fae5;
+  background: #cde0d4;
   color: #065f46;
   padding: 4px 8px;
 }
@@ -144,12 +144,12 @@
   font-style: italic;
 }
 .settlement-table .dep-payer-input:hover {
-  border-color: #6ee7b7;
+  border-color: #a5cdb8;
   background: rgba(255, 255, 255, 0.6);
 }
 .settlement-table .dep-payer-input:focus {
   outline: none;
-  border-color: #059669;
+  border-color: #6a9b80;
   background: #fff;
   font-weight: 700;
 }
@@ -165,12 +165,12 @@
   width: 130px;
 }
 .settlement-table .dep-date-input:hover {
-  border-color: #6ee7b7;
+  border-color: #a5cdb8;
   background: rgba(255, 255, 255, 0.6);
 }
 .settlement-table .dep-date-input:focus {
   outline: none;
-  border-color: #059669;
+  border-color: #6a9b80;
   background: #fff;
 }
 .settlement-table .dep-date-input:invalid,
@@ -193,12 +193,12 @@
   margin-bottom: 2px;
 }
 .settlement-table .dep-month-date:hover {
-  border-color: #6ee7b7;
+  border-color: #a5cdb8;
   background: rgba(255, 255, 255, 0.6);
 }
 .settlement-table .dep-month-date:focus {
   outline: none;
-  border-color: #059669;
+  border-color: #6a9b80;
   background: #fff;
   color: var(--text);
 }
@@ -215,10 +215,10 @@
   color: inherit;
   border-radius: 2px;
 }
-.settlement-table .dep-month-input:hover { border-color: #6ee7b7; }
+.settlement-table .dep-month-input:hover { border-color: #a5cdb8; }
 .settlement-table .dep-month-input:focus {
   outline: none;
-  border-color: #059669;
+  border-color: #6a9b80;
   background: #fff;
 }
 .settlement-table .btn-dep-del {
@@ -240,16 +240,16 @@
   opacity: 1;
 }
 .settlement-table tr.row-deposit-add td.kind-deposit-add {
-  background: #ecfdf5;
+  background: #eef2ee;
   text-align: center;
   padding: 5px 8px;
 }
 .settlement-table tr.row-deposit-add td.num,
 .settlement-table tr.row-deposit-add td.col-total {
-  background: #ecfdf5;
+  background: #eef2ee;
 }
 .settlement-table .btn-dep-add {
-  border: 1px dashed #059669;
+  border: 1px dashed #6a9b80;
   background: #fff;
   color: #065f46;
   font-family: inherit;
@@ -261,18 +261,18 @@
   white-space: nowrap;
 }
 .settlement-table .btn-dep-add:hover {
-  background: #059669;
+  background: #6a9b80;
   color: #fff;
   border-style: solid;
 }
-.settlement-table tr.block-hq td.kind-deposit { background: #d1fae5; }
+.settlement-table tr.block-hq td.kind-deposit { background: #cde0d4; }
 
 .settlement-table td.num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 .settlement-table td.col-total {
-  background: #fef3c7;
+  background: #ece2c2;
   font-weight: 700;
   border-left: 3px solid var(--text);
 }
@@ -284,14 +284,14 @@
 .settlement-table tr.row-block-end td {
   border-bottom: 3px solid #555;
 }
-.settlement-table tr.block-hq td { background: #fffbeb; }
-.settlement-table tr.block-hq td.kind-internal { background: #fff7a8; }
-.settlement-table tr.block-hq td.kind-external { background: #fce4ec; }
-.settlement-table tr.block-hq td.kind-billing { background: #ddd6fe; }
+.settlement-table tr.block-hq td { background: #f7f1e0; }
+.settlement-table tr.block-hq td.kind-internal { background: #ede4c5; }
+.settlement-table tr.block-hq td.kind-external { background: #e0d0d6; }
+.settlement-table tr.block-hq td.kind-billing { background: #cbc1de; }
 .settlement-table tr.block-hq td.num { font-weight: 700; }
 
 .settlement-table tr.block-project:hover td { background: #fafafa; }
-.settlement-table tr.block-project:hover td.col-project { background: #fef3c7; }
+.settlement-table tr.block-project:hover td.col-project { background: #ece2c2; }
 
 /* 인쇄용 */
 @media print {
