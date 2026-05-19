@@ -814,12 +814,12 @@ const RosterData = {
     return (year > rY) || (year === rY && month > rM);
   },
 
-  // 휴직/퇴사 후면 0, 아니면 stored monthly 값
+  // 휴직/퇴사 후면 0, 값 미설정이면 기본 재직(1), 그 외엔 stored monthly 값
   effectiveMonthly(person, year, month) {
     if (this.isOnLeave(person, year, month)) return 0;
     if (this.isAfterResign(person, year, month)) return 0;
     const v = (person.monthly || {})[`${year}-${month}`];
-    if (v === undefined || v === null || v === '') return 0;
+    if (v === undefined || v === null || v === '') return 1; // 미설정 = 재직 1로 간주
     return Number(v) || 0;
   },
 

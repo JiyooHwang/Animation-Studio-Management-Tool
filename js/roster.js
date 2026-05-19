@@ -344,8 +344,12 @@ const RosterPage = (function () {
       const onLeave = RosterData.isOnLeave(p, c.year, c.month);
       const afterResign = isAfterResignCol(p, c);
       const v = (p.monthly || {})[monthKey(c.year, c.month)];
-      const display = (v === undefined || v === null || v === '') ? '' : String(v);
-      const isZero = display !== '' && Number(v) === 0;
+      // 휴직/퇴사가 아닌데 값 미설정이면 기본 1로 표시 (재직)
+      const isUnset = v === undefined || v === null || v === '';
+      const display = isUnset
+        ? (onLeave || afterResign ? '' : '1')
+        : String(v);
+      const isZero = !isUnset && Number(v) === 0;
       const next = cols[ci + 1];
       const isMonthEnd = !next || next.year !== c.year || next.month !== c.month;
       const isYearEnd = !next || next.year !== c.year;
@@ -662,7 +666,8 @@ const RosterPage = (function () {
         if (RosterData.isOnLeave(p, m.year, m.month)) return '휴';
         if (RosterData.isAfterResign(p, m.year, m.month)) return '퇴';
         const v = (p.monthly || {})[monthKey(m.year, m.month)];
-        return (v === undefined || v === null || v === '') ? '' : Number(v);
+        // 미설정 = 재직 1로 간주 (UI와 일치)
+        return (v === undefined || v === null || v === '') ? 1 : Number(v);
       });
       return [
         p.empType || '',
