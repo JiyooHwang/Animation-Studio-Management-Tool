@@ -1,7 +1,8 @@
 /* eslint-disable no-unused-vars */
-// 팀 정의 - 인원 페이지 (image 1 기준)
+// 팀 정의 - 본부인원 페이지의 "팀 관리" 모달에서 사용자 추가/삭제/이름변경 가능
 // premium: true → 주당단가가 PD/Sup/Dr/IPB/IPS rate 적용
-const TEAMS = [
+// exec: true → 주당단가가 본부장 rate 적용
+const DEFAULT_TEAMS = [
   { id: 'exec',         name: '',                          role: '부사장/본부장',          color: '#dcdcdc', exec: true },
   { id: 'global',       name: '',                          role: '글로벌 사업 개발실',     color: '#ececec' },
   { id: 'ipBiz',        name: '',                          role: 'IP사업실',               color: '#ececec', premium: true },
@@ -25,9 +26,73 @@ const TEAMS = [
   { id: 'post',         name: 'POST',                      role: 'POST',                   color: '#c478a4', textColor: '#fff' },
 ];
 
+// 사용자 편집 가능한 TEAMS (const이지만 내용은 mutate). 페이지가 참조하는 동안에도 같은 배열이 유지됨.
+const TEAMS = [];
+const TEAMS_STORE_KEY = 'teams.v1';
+
+(function loadTeams() {
+  const stored = (typeof Store !== 'undefined') ? Store.read(TEAMS_STORE_KEY, null) : null;
+  const source = (stored && Array.isArray(stored) && stored.length > 0) ? stored : DEFAULT_TEAMS;
+  source.forEach((t) => TEAMS.push(Object.assign({}, t)));
+})();
+
 function getTeam(id) {
   return TEAMS.find((t) => t.id === id);
 }
+
+// 팀 관리 (본부인원 페이지에서 추가/삭제/이름변경)
+const Teams = {
+  list() { return TEAMS; },
+
+  save() {
+    Store.write(TEAMS_STORE_KEY, TEAMS);
+  },
+
+  add(team) {
+    const id = (team && team.id) ? team.id : 'team_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+    const next = Object.assign({
+      id,
+      name: '',
+      role: '새 팀',
+      color: '#ececec',
+    }, team || {}, { id });
+    TEAMS.push(next);
+    this.save();
+    return id;
+  },
+
+  update(id, patch) {
+    const t = TEAMS.find((x) => x.id === id);
+    if (!t) return;
+    Object.assign(t, patch);
+    this.save();
+  },
+
+  remove(id) {
+    const idx = TEAMS.findIndex((t) => t.id === id);
+    if (idx < 0) return;
+    TEAMS.splice(idx, 1);
+    this.save();
+  },
+
+  move(id, dir) {
+    const idx = TEAMS.findIndex((t) => t.id === id);
+    if (idx < 0) return;
+    const ni = dir === 'up' ? idx - 1 : idx + 1;
+    if (ni < 0 || ni >= TEAMS.length) return;
+    const tmp = TEAMS[idx];
+    TEAMS[idx] = TEAMS[ni];
+    TEAMS[ni] = tmp;
+    this.save();
+  },
+
+  // 기본 팀 목록으로 복원
+  reset() {
+    TEAMS.length = 0;
+    DEFAULT_TEAMS.forEach((t) => TEAMS.push(Object.assign({}, t)));
+    this.save();
+  },
+};
 
 // 비용/프로젝트 페이지의 프로젝트 (default seed)
 const DEFAULT_PROJECTS = [

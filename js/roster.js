@@ -19,6 +19,7 @@ const RosterPage = (function () {
   let people = [];
   let period = Object.assign({}, DEFAULT_PERIOD);
   let viewMode = 'month'; // 'day' | 'week' | 'month' (기본 = 현재 동작인 월별)
+  let teamsModalOpen = false;
 
   function init(rootEl) {
     mountEl = rootEl;
@@ -187,6 +188,7 @@ const RosterPage = (function () {
       <div class="roster-wrap">
         ${renderTable(months)}
       </div>
+      ${renderTeamsModal()}
     `;
     bindEvents();
 
@@ -230,6 +232,7 @@ const RosterPage = (function () {
         <button class="btn primary" id="r-add" type="button">+ 행 추가</button>
         <button class="btn" id="r-add10" type="button">+ 10행 추가</button>
         <button class="btn ghost" id="r-remove-last" type="button">- 마지막 행 제거</button>
+        <button class="btn" id="r-teams" type="button" title="팀 추가/삭제/이름 변경">👥 팀 관리 (${Teams.list().length})</button>
         <span style="font-size:11px; color:var(--text-dim); margin-left:6px;">💡 행 위에서 <strong>우클릭</strong>으로 위/아래 삽입 가능</span>
         <span class="spacer" style="flex:1;"></span>
         <span style="font-size:11px; color:var(--text-dim);">보기</span>
@@ -242,6 +245,49 @@ const RosterPage = (function () {
         <select id="r-start-month">${monthOpts}</select>
         <button class="btn" id="r-add-month" type="button">+ 한 달 추가</button>
         <button class="btn ghost" id="r-remove-month" type="button">- 한 달 제거</button>
+      </div>
+    `;
+  }
+
+  // ===== 팀 관리 모달 =====
+  function renderTeamsModal() {
+    if (!teamsModalOpen) return '';
+    const items = Teams.list().map((t, i) => {
+      const last = i === Teams.list().length - 1;
+      const usedBy = people.filter((p) => p.teamId === t.id).length;
+      const usedHint = usedBy > 0 ? `<span class="tm-used" title="${usedBy}명 사용 중">${usedBy}명</span>` : '';
+      return `
+        <li class="tm-item">
+          <div class="tm-color-wrap">
+            <input class="tm-color" type="color" data-action="tm-color" data-id="${t.id}" value="${t.color || '#ececec'}" title="컬러" />
+          </div>
+          <input class="tm-role" type="text" data-action="tm-role" data-id="${t.id}" value="${escapeHtml(t.role || '')}" placeholder="역할 (예: 모델링)" />
+          <input class="tm-name" type="text" data-action="tm-name" data-id="${t.id}" value="${escapeHtml(t.name || '')}" placeholder="팀명 (선택, 예: Modeling팀)" />
+          <div class="tm-actions">
+            ${usedHint}
+            <button type="button" class="tm-btn" data-action="tm-up" data-id="${t.id}" ${i === 0 ? 'disabled' : ''} title="위로">↑</button>
+            <button type="button" class="tm-btn" data-action="tm-down" data-id="${t.id}" ${last ? 'disabled' : ''} title="아래로">↓</button>
+            <button type="button" class="tm-btn tm-btn-del" data-action="tm-del" data-id="${t.id}" title="삭제">×</button>
+          </div>
+        </li>`;
+    }).join('');
+
+    return `
+      <div class="tm-modal-overlay" id="tm-modal-overlay">
+        <div class="tm-modal" role="dialog" aria-modal="true">
+          <header class="tm-modal-header">
+            <h3>👥 팀 관리</h3>
+            <button class="btn-close" type="button" id="tm-modal-close" aria-label="닫기">×</button>
+          </header>
+          <div class="tm-modal-body">
+            <ul class="tm-list">${items}</ul>
+          </div>
+          <footer class="tm-modal-footer">
+            <button class="btn primary" type="button" id="tm-add">+ 팀 추가</button>
+            <button class="btn ghost" type="button" id="tm-reset" title="기본 팀 목록으로 복원 (사용자 추가/수정 모두 초기화)">기본값 복원</button>
+            <span class="tm-hint">⚠ 사용 중인 팀을 삭제하면 해당 인원/프로젝트 행이 표시 안 될 수 있습니다.</span>
+          </footer>
+        </div>
       </div>
     `;
   }
@@ -485,6 +531,63 @@ const RosterPage = (function () {
         if (!VIEW_MODES.includes(v) || v === viewMode) return;
         viewMode = v;
         Store.write(STORE_VIEW, viewMode);
+        render();
+      });
+    });
+
+    // 팀 관리 모달 열기/닫기
+    const teamsBtn = mountEl.querySelector('#r-teams');
+    if (teamsBtn) teamsBtn.addEventListener('click', () => { teamsModalOpen = true; render(); });
+    const tmClose = mountEl.querySelector('#tm-modal-close');
+    if (tmClose) tmClose.addEventListener('click', () => { teamsModalOpen = false; render(); });
+    const tmOverlay = mountEl.querySelector('#tm-modal-overlay');
+    if (tmOverlay) tmOverlay.addEventListener('click', (e) => {
+      if (e.target === tmOverlay) { teamsModalOpen = false; render(); }
+    });
+
+    // 팀 추가 / 기본값 복원
+    const tmAdd = mountEl.querySelector('#tm-add');
+    if (tmAdd) tmAdd.addEventListener('click', () => {
+      Teams.add({ role: '새 팀', name: '', color: '#ececec' });
+      render();
+    });
+    const tmReset = mountEl.querySelector('#tm-reset');
+    if (tmReset) tmReset.addEventListener('click', () => {
+      if (!confirm('기본 팀 목록으로 복원할까요?\n사용자가 추가/수정한 팀은 모두 초기화됩니다.')) return;
+      Teams.reset();
+      render();
+    });
+
+    // 개별 팀 편집 (role / name / color)
+    mountEl.querySelectorAll('[data-action="tm-role"], [data-action="tm-name"]').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        const field = inp.dataset.action === 'tm-role' ? 'role' : 'name';
+        Teams.update(inp.dataset.id, { [field]: inp.value });
+        render();
+      });
+    });
+    mountEl.querySelectorAll('[data-action="tm-color"]').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        Teams.update(inp.dataset.id, { color: inp.value });
+        render();
+      });
+    });
+    mountEl.querySelectorAll('[data-action="tm-up"]').forEach((btn) => {
+      btn.addEventListener('click', () => { Teams.move(btn.dataset.id, 'up'); render(); });
+    });
+    mountEl.querySelectorAll('[data-action="tm-down"]').forEach((btn) => {
+      btn.addEventListener('click', () => { Teams.move(btn.dataset.id, 'down'); render(); });
+    });
+    mountEl.querySelectorAll('[data-action="tm-del"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const t = Teams.list().find((x) => x.id === id);
+        const usedBy = people.filter((p) => p.teamId === id).length;
+        const msg = usedBy > 0
+          ? `"${t ? (t.role || t.name) : ''}" 팀을 삭제할까요?\n현재 ${usedBy}명이 이 팀에 속해 있어, 삭제 시 해당 인원의 팀 선택이 비워집니다.`
+          : `"${t ? (t.role || t.name) : ''}" 팀을 삭제할까요?`;
+        if (!confirm(msg)) return;
+        Teams.remove(id);
         render();
       });
     });
