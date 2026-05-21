@@ -3,6 +3,9 @@
 // premium: true → 주당단가가 PD/Sup/Dr/IPB/IPS rate 적용
 const TEAMS = [
   { id: 'exec',         name: '',                          role: '부사장/본부장',          color: '#dcdcdc', exec: true },
+  { id: 'global',       name: '',                          role: '글로벌 사업 개발실',     color: '#ececec' },
+  { id: 'ipBiz',        name: '',                          role: 'IP사업실',               color: '#ececec', premium: true },
+  { id: 'ipStrategy',   name: '',                          role: 'IP전략실',               color: '#ececec', premium: true },
   { id: 'producer',     name: 'Producer실',                role: '피디 / 코디네이터',      color: '#dcdcdc', premium: true },
   { id: 'supervisor',   name: 'Supervisor실',              role: '수퍼바이저',             color: '#b0d4d4', premium: true },
   { id: 'storyDR',      name: 'Story Development팀 DR',    role: '감독 / 연출',            color: '#c2d8c2', premium: true },
